@@ -1,0 +1,3600 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nephrocare Funchal — Horário de Enfermagem</title>
+<!-- Firebase SDK (compat v9) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1120;
+    --surface: #111827;
+    --surface2: #1a2233;
+    --border: #1e2d45;
+    --accent: #00b4d8;
+    --accent2: #0077b6;
+    --text: #e2eaf4;
+    --muted: #5a7395;
+    --sunday: #ff6b6b44;
+    --sunday-text: #ff8c8c;
+    --saturday: #ffd16644;
+    --saturday-text: #ffd166;
+  }
+
+  /* ── Light theme ── */
+  body.light-theme {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #e8edf3;
+    --border: #c8d4e0;
+    --accent: #0077b6;
+    --accent2: #005f8e;
+    --text: #1a2233;
+    --muted: #6b8299;
+    --sunday: #ff000030;
+    --sunday-text: #cc0000;
+    --saturday: #ff990018;
+    --saturday-text: #cc7700;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .brand-text h1 { font-size: 15px; font-weight: 600; letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+  .brand-text p  { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+  .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  input[type="text"], input[type="number"] {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; outline: none; transition: border-color .2s;
+  }
+  input[type="text"]:hover,   input[type="number"]:hover   { border-color: var(--accent); }
+  input[type="text"]:focus,   input[type="number"]:focus   { border-color: var(--accent); }
+
+  button {
+    font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
+    border: none; border-radius: 8px; padding: 8px 16px; transition: all .2s;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #fff; font-weight: 500; }
+  .btn-primary:hover { opacity: .85; transform: translateY(-1px); }
+  .btn-ghost   { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger  { background: transparent; border: 1px solid #ff4d4d44; color: #ff6b6b; padding: 4px 8px; font-size: 11px; border-radius: 5px; }
+  .btn-danger:hover { background: #ff4d4d22; }
+
+  /* ── Legend ── */
+  .legend-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 32px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .legend-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .legend-items { display: flex; gap: 8px; flex-wrap: wrap; }
+  .legend-item  { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); }
+  .legend-swatch {
+    min-width: 28px; height: 16px; border-radius: 4px; padding: 0 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: #fff; font-family: 'DM Mono', monospace; letter-spacing: -.3px;
+  }
+
+  /* ── Table wrapper ── */
+  .table-wrapper { flex: 1; overflow: auto; padding: 24px 32px; }
+
+  table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+
+  /* Sticky first column */
+  .col-name {
+    position: sticky; left: 0; z-index: 10; background: var(--surface);
+    min-width: 170px; max-width: 190px;
+  }
+
+  th { padding: 0; font-weight: 500; font-size: 12px; white-space: nowrap; }
+
+  /* Row: day numbers */
+  .row-days th {
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border); padding: 10px 6px; text-align: center;
+    font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; min-width: 42px;
+  }
+  .row-days .col-name {
+    background: var(--surface); text-align: left; padding: 10px 16px;
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+    border-right: 2px solid var(--accent2);
+  }
+  .row-days th.today-col { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+  /* Row: weekdays */
+  .row-weekday th {
+    background: var(--surface); border-bottom: 2px solid var(--border);
+    border-right: 1px solid var(--border); padding: 6px 4px; text-align: center;
+    font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  }
+  .row-weekday .col-name { text-align: left; padding: 6px 16px; border-right: 2px solid var(--accent2); font-size: 11px; color: var(--muted); }
+  .row-weekday th.sunday   { color: var(--sunday-text);   background: var(--sunday); }
+  .row-weekday th.saturday { color: var(--saturday-text); background: var(--saturday); }
+  .row-weekday th.today-col { color: var(--accent); }
+
+  /* Nurse rows */
+  .nurse-row td {
+    border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    height: 44px; text-align: center; vertical-align: middle; min-width: 42px;
+    cursor: pointer; transition: background .15s; position: relative;
+    font-size: 16px; font-weight: 600;
+  }
+  .nurse-row td.col-name {
+    text-align: left; padding: 0 10px; font-size: 13px; font-weight: 500;
+    cursor: default; border-right: 2px solid var(--accent2);
+    display: flex; align-items: center; justify-content: space-between; height: 44px;
+  }
+  .nurse-row td.col-name span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nurse-row td.sunday-col    { background: var(--sunday); }
+  .nurse-row td.saturday-col  { background: var(--saturday); }
+  .nurse-row td.today-col     { outline: 1px solid var(--accent); }
+  .nurse-row td:not(.col-name):hover { background: var(--surface2); }
+
+  /* Shift chip */
+  .shift-chip {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+    position: absolute; inset: 0;
+    font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 700;
+    color: #fff; pointer-events: none; letter-spacing: -.3px;
+  }
+
+  /* Totals row */
+  .row-totals td {
+    border-top: 2px solid var(--border); border-right: 1px solid var(--border);
+    padding: 6px 4px; text-align: center; font-size: 10px;
+    font-family: 'DM Mono', monospace; color: var(--muted); height: 30px;
+  }
+  .row-totals td.col-name {
+    text-align: left; padding: 0 14px; font-size: 11px; font-weight: 500;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+    border-right: 2px solid var(--accent2);
+  }
+
+
+  /* ── Drag & Drop rows ── */
+  .nurse-row { user-select: none; }
+  .nurse-row.dragging { opacity: 0.35; background: var(--surface2) !important; }
+  .nurse-row.drag-over { box-shadow: 0 -3px 0 var(--accent) inset; }
+  .drag-handle {
+    cursor: grab; color: var(--muted); font-size: 15px; padding: 0 6px 0 0;
+    flex-shrink: 0; opacity: 0.5; transition: opacity .15s; line-height: 1;
+  }
+  .drag-handle:hover { opacity: 1; color: var(--accent); }
+  /* ── Add nurse locked state ── */
+  #addNurseSection.locked { opacity: 0.45; pointer-events: none; }
+  #addNurseSection .locked-hint { display: none; font-size: 11px; color: var(--muted); font-style: italic; }
+  #addNurseSection.locked .locked-hint { display: block; margin-top: 6px; }
+
+  /* ── Add nurse ── */
+  .add-nurse-row { display: flex; align-items: center; gap: 8px; padding: 16px 0 8px; }
+  .add-nurse-row input { min-width: 220px; }
+
+  /* ── Needs section ── */
+  .needs-section { margin-top: 36px; }
+  .needs-title {
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 10px;
+  }
+  .needs-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  .needs-row td {
+    border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    height: 40px; text-align: center; vertical-align: middle; min-width: 42px;
+  }
+  .needs-row td.col-name {
+    text-align: left; padding: 0 14px; font-size: 12px; font-weight: 600;
+    border-right: 2px solid var(--accent2);
+    position: sticky; left: 0; z-index: 10; background: var(--surface);
+  }
+  .needs-row td.sunday-col    { background: var(--sunday); }
+  .needs-row td.saturday-col  { background: var(--saturday); }
+  .needs-row td.today-col     { outline: 1px solid var(--accent); }
+
+  .needs-input {
+    width: 100%; height: 100%; border: none; background: transparent;
+    text-align: center; color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 13px; font-weight: 500; outline: none; cursor: pointer; padding: 0;
+  }
+  .needs-input:focus { background: var(--surface2); cursor: text; }
+  /* hide number arrows */
+  .needs-input::-webkit-inner-spin-button, .needs-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .needs-input { -moz-appearance: textfield; }
+
+  .needs-row.row-manha td.col-name { border-left: 3px solid #0077b6; color: #60b8f5; }
+  .needs-row.row-tarde td.col-name { border-left: 3px solid #00b4d8; color: #7dd8ec; }
+  .needs-row.row-noite td.col-name { border-left: 3px solid #2563eb; color: #93b4f5; }
+
+
+  /* Free-text shift chip */
+  .shift-free {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; max-width: 40px; height: 20px; border-radius: 4px; padding: 0 4px;
+    font-family: 'DM Mono', monospace; font-size: 8px; font-weight: 700;
+    color: #cbd5e1; pointer-events: none; letter-spacing: -.2px;
+    background: #2d3748; border: 1px dashed #4a5568;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Free-text input row inside popup */
+  .popup-free-row {
+    grid-column: 1 / -1; display: flex; gap: 5px; padding-top: 4px;
+    border-top: 1px solid var(--border); margin-top: 2px;
+  }
+  .popup-free-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--accent); padding: 5px 8px; border-radius: 7px;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; outline: none; min-width: 0;
+    transition: border-color .2s;
+  }
+  .popup-free-input:focus { border-color: var(--accent); }
+  .popup-free-input::placeholder { color: var(--muted); font-weight: 400; text-transform: none; }
+  .btn-confirm {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--accent);
+    padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer;
+    white-space: nowrap; transition: all .2s;
+  }
+  .btn-confirm:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Popup ── */
+  .shift-popup {
+    position: fixed; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px; display: grid;
+    grid-template-columns: repeat(3, 1fr); gap: 5px; z-index: 999;
+    box-shadow: 0 12px 40px #00000099; min-width: 240px; max-width: 290px;
+  }
+  .shift-popup.hidden { display: none; }
+  .shift-option {
+    display: flex; align-items: center; gap: 6px; padding: 7px 6px; border-radius: 7px;
+    font-size: 11px; cursor: pointer; border: 1px solid transparent; transition: all .15s;
+    font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--surface2); white-space: nowrap;
+  }
+  .shift-option:hover { border-color: var(--accent); color: var(--accent); }
+  .shift-option.clear { grid-column: 1/-1; background: transparent; border-color: var(--border); color: var(--muted); justify-content: center; }
+  .shift-option.clear:hover { border-color: #ff6b6b; color: #ff6b6b; }
+
+  /* Month nav */
+  .month-nav { display: flex; align-items: center; gap: 6px; }
+  .month-nav button { width: 32px; height: 32px; padding: 0; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 16px; border-radius: 8px; }
+  .month-nav button:hover { border-color: var(--accent); color: var(--accent); }
+  .month-display { font-size: 14px; font-weight: 600; min-width: 150px; text-align: center; color: var(--text); }
+
+  .nurse-count { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .empty-msg { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── View system ── */
+  .view-hidden { display: none !important; }
+  #view-schedule, #view-swaps, #view-config, #view-hours, #view-disponibilidades { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── Home view ── */
+  #view-home {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 60% 30%, #0d2137 0%, var(--bg) 70%);
+    padding: 40px 20px;
+  }
+  .home-brand { text-align: center; margin-bottom: 48px; }
+  .home-brand-icon {
+    width: 72px; height: 72px; margin: 0 auto 16px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 36px;
+    box-shadow: 0 0 40px #00b4d840;
+  }
+  .home-brand h1 { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
+  .home-brand p  { font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+  .home-cards { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .home-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 40px 36px; width: 260px; text-align: center;
+    cursor: pointer; transition: all .25s; position: relative; overflow: hidden;
+  }
+  .home-card::before {
+    content: ''; position: absolute; inset: 0; opacity: 0;
+    background: linear-gradient(135deg, var(--accent2)18, var(--accent)18);
+    transition: opacity .25s;
+  }
+  .home-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 16px 48px #00b4d820; }
+  .home-card:hover::before { opacity: 1; }
+  .home-card-icon { font-size: 44px; margin-bottom: 18px; }
+  .home-card-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .home-card-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .home-badge {
+    display: inline-block; background: var(--accent2); color: #fff;
+    font-size: 10px; font-weight: 700; border-radius: 99px; padding: 2px 8px;
+    margin-top: 12px; letter-spacing: .04em;
+  }
+
+  /* ── Back button ── */
+  .btn-back {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    font-size: 13px; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Swaps view ── */
+  .swaps-wrapper { flex: 1; padding: 28px 32px; display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+
+  .swap-form-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; min-width: 320px; flex: 0 0 340px;
+  }
+  .swap-form-title {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .swap-form-title::after { content:''; flex:1; height:1px; background: var(--border); }
+  .swap-field { margin-bottom: 16px; }
+  .swap-field label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .swap-field select, .swap-field input[type="date"] {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+    transition: border-color .2s; appearance: none; -webkit-appearance: none; cursor: pointer;
+  }
+  .swap-field select:focus, .swap-field input[type="date"]:focus { border-color: var(--accent); }
+  .swap-field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.6); cursor: pointer; }
+  .btn-submit-swap {
+    width: 100%; padding: 11px; background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff; font-size: 14px; font-weight: 600; border-radius: 9px; cursor: pointer;
+    border: none; margin-top: 8px; transition: opacity .2s;
+    font-family: 'DM Sans', sans-serif; letter-spacing: .02em;
+  }
+  .btn-submit-swap:hover { opacity: .85; }
+
+  /* ── Swap list ── */
+  .swap-list-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; flex: 1; min-width: 340px;
+  }
+  .swap-list-title {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .swap-list-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  .swap-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: border-color .2s;
+  }
+  .swap-item:hover { border-color: #2d3f58; }
+  .swap-item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .swap-item-id { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .swap-badge {
+    font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; letter-spacing: .04em;
+  }
+  .badge-pending  { background: #78350f33; color: #fbbf24; border: 1px solid #78350f; }
+  .badge-approved { background: #14532d33; color: #4ade80; border: 1px solid #14532d; }
+  .badge-rejected { background: #7f1d1d33; color: #f87171; border: 1px solid #7f1d1d; }
+
+  .swap-item-body { font-size: 13px; line-height: 1.8; color: var(--text); }
+  .swap-item-body span { color: var(--muted); }
+  .swap-shift-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 18px; border-radius: 4px; padding: 0 5px;
+    font-family: 'DM Mono', monospace; font-size: 9px; font-weight: 700; color: #fff;
+    vertical-align: middle; margin: 0 2px;
+  }
+  .swap-item-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .btn-approve {
+    flex: 1; padding: 7px; background: #14532d33; border: 1px solid #14532d;
+    color: #4ade80; font-size: 12px; font-weight: 600; border-radius: 7px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all .2s;
+  }
+  .btn-approve:hover { background: #14532d88; }
+  .btn-reject {
+    flex: 1; padding: 7px; background: #7f1d1d33; border: 1px solid #7f1d1d;
+    color: #f87171; font-size: 12px; font-weight: 600; border-radius: 7px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all .2s;
+  }
+  .btn-reject:hover { background: #7f1d1d88; }
+  .swap-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 32px 0; }
+
+  .swap-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .swap-tab {
+    padding: 6px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    font-family: 'DM Sans', sans-serif; transition: all .2s;
+  }
+  .swap-tab.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+
+  /* ── Config view ── */
+  .config-wrapper { flex:1; padding:28px 32px; max-width:920px; margin:0 auto; width:100%; }
+  .config-section-title {
+    font-size:13px; font-weight:700; color:var(--accent);
+    text-transform:uppercase; letter-spacing:.08em; margin-bottom:18px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .config-section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  .config-table { width:100%; border-collapse:separate; border-spacing:0; margin-bottom:32px; }
+  .config-table th {
+    background:var(--surface2); padding:10px 12px; font-size:11px; font-weight:600;
+    color:var(--muted); text-transform:uppercase; letter-spacing:.06em;
+    border-bottom:2px solid var(--border); text-align:left;
+  }
+  .config-table td { padding:7px 10px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+  .config-table tr:hover td { background:var(--surface2); }
+  .config-pill {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:34px; height:20px; border-radius:4px; padding:0 5px;
+    font-family:'DM Mono',monospace; font-size:9px; font-weight:700; color:#fff;
+  }
+  .cfg-input {
+    background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:5px 8px; border-radius:6px; font-family:'DM Sans',sans-serif;
+    font-size:12px; outline:none; transition:border-color .2s;
+  }
+  .cfg-input:focus { border-color:var(--accent); }
+  .cfg-input-key   { width:72px; text-transform:uppercase; font-family:'DM Mono',monospace; font-weight:700; }
+  .cfg-input-label { width:180px; }
+  .cfg-input-hours { width:56px; text-align:center; }
+  .cfg-input-color { width:38px; height:28px; padding:2px; cursor:pointer; border-radius:6px; }
+  .cfg-hours-wrap  { display:flex; align-items:center; gap:5px; color:var(--muted); font-size:12px; }
+  .btn-cfg-save {
+    background:transparent; border:1px solid #0077b655; color:var(--accent);
+    font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer;
+    font-family:'DM Sans',sans-serif; transition:all .2s;
+  }
+  .btn-cfg-save:hover { background:#0077b622; }
+  .btn-cfg-del {
+    background:transparent; border:1px solid #ff4d4d33; color:#ff6b6b;
+    font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer;
+    font-family:'DM Sans',sans-serif; transition:all .2s;
+  }
+  .btn-cfg-del:hover { background:#ff4d4d22; }
+  .config-add-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:22px 24px; margin-bottom:24px;
+  }
+  .config-add-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .config-add-row .cfg-field label { font-size:11px; color:var(--muted); display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:.05em; }
+  .btn-add-shift {
+    background:linear-gradient(135deg,var(--accent2),var(--accent));
+    color:#fff; font-size:13px; font-weight:600; padding:9px 20px;
+    border-radius:8px; border:none; cursor:pointer;
+    font-family:'DM Sans',sans-serif; transition:opacity .2s; white-space:nowrap;
+  }
+  .btn-add-shift:hover { opacity:.85; }
+  .config-notice {
+    font-size:11px; color:var(--muted); margin-bottom:20px; line-height:1.7;
+    background:var(--surface2); border-radius:8px; padding:10px 14px;
+    border-left:3px solid var(--accent2);
+  }
+
+  /* ── Hours view ── */
+  .hours-wrapper { flex:1; padding:28px 32px; overflow:auto; }
+  .hours-controls {
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:24px;
+  }
+  .hours-month-nav { display:flex; align-items:center; gap:6px; }
+  .hours-month-nav button {
+    width:32px; height:32px; padding:0; background:var(--surface2);
+    border:1px solid var(--border); color:var(--text); font-size:16px;
+    border-radius:8px; cursor:pointer;
+  }
+  .hours-month-nav button:hover { border-color:var(--accent); color:var(--accent); }
+  .hours-month-display { font-size:14px; font-weight:600; min-width:160px; text-align:center; color:var(--text); }
+
+  .hours-table { border-collapse:separate; border-spacing:0; width:100%; min-width:700px; }
+  .hours-table th {
+    background:var(--surface2); padding:10px 14px; font-size:11px; font-weight:600;
+    color:var(--muted); text-transform:uppercase; letter-spacing:.06em;
+    border-bottom:2px solid var(--border); text-align:center; white-space:nowrap;
+  }
+  .hours-table th.col-nurse { text-align:left; min-width:180px; }
+  .hours-table th.col-total { color:var(--accent); }
+  .hours-table td {
+    padding:9px 14px; border-bottom:1px solid var(--border);
+    font-size:15px; text-align:center; vertical-align:middle;
+  }
+  .hours-table td.col-nurse {
+    text-align:left; font-weight:500;
+    position:sticky; left:0; background:var(--surface); z-index:2;
+    border-right:2px solid var(--accent2);
+  }
+  .hours-table tr:hover td { background:var(--surface2); }
+  .hours-table tr:hover td.col-nurse { background:var(--surface2); }
+
+  .week-header { font-size:10px; color:var(--muted); display:block; font-weight:400; }
+
+  .hours-pill {
+    display:inline-block; padding:2px 8px; border-radius:99px;
+    font-size:12px; font-weight:600; font-family:'DM Mono',monospace;
+  }
+  .hours-pill.zero  { color:var(--muted); }
+
+  .hours-total-pill {
+    display:inline-block; padding:3px 10px; border-radius:99px;
+    font-size:13px; font-weight:700; font-family:'DM Mono',monospace;
+    background:var(--surface2); border:1px solid var(--border); color:var(--accent);
+  }
+  .hours-total-pill.at-target   { background:#14532d33; color:#4ade80; border:1px solid #14532d; }
+  .hours-total-pill.over-target { background:#78350f33; color:#fb923c; border:1px solid #78350f; }
+  .hours-total-pill.under-target{ background:#1e3a5f33; color:#93c5fd; border:1px solid #1e3a5f; }
+  .hours-legend {
+    display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px;
+    font-size:11px; color:var(--muted); align-items:center;
+  }
+  .hours-legend span { display:flex; align-items:center; gap:5px; }
+  .hours-empty { text-align:center; color:var(--muted); font-size:14px; padding:40px; }
+
+  .hours-week-divider th { border-left:1px solid var(--border); }
+  .hours-table td.week-sep { border-left:1px solid var(--border); }
+  .hours-table th.week-sep { border-left:1px solid var(--border); }
+
+  /* Contracted hours target bar */
+  .hours-target-bar {
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    margin-bottom:18px; padding:10px 14px;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:10px; font-size:12px;
+  }
+  .hours-target-bar label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+  .hours-target-input {
+    width:64px; background:var(--surface); border:1px solid var(--border);
+    color:var(--accent); padding:5px 8px; border-radius:6px;
+    font-family:'DM Mono',monospace; font-size:13px; font-weight:700;
+    text-align:center; outline:none; transition:border-color .2s;
+  }
+  .hours-target-input:focus { border-color:var(--accent); }
+  .hours-target-suffix { color:var(--muted); font-size:12px; margin-left:2px; }
+  .hours-target-hint { color:var(--muted); font-size:11px; font-style:italic; }
+
+  .hours-pill.at-target  { background:#14532d33; color:#4ade80; border:1px solid #14532d; }
+  .hours-pill.over-target { background:#78350f33; color:#fb923c; border:1px solid #78350f; }
+  .hours-pill.under-target{ background:#1e3a5f33; color:#93c5fd; border:1px solid #1e3a5f; }
+  /* keep 'exact' as alias (used in team totals row) */
+  .hours-pill.exact { background:#1e3a5f33; color:#60b8f5; border:1px solid #1e3a5f; }
+
+  /* Progress bar inside hours cell */
+  .hours-cell-wrap { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .hours-bar-track { width:36px; height:3px; background:var(--border); border-radius:99px; overflow:hidden; }
+  .hours-bar-fill  { height:100%; border-radius:99px; transition:width .3s; }
+  .hours-bar-fill.at-target   { background:#4ade80; }
+  .hours-bar-fill.over-target { background:#fb923c; }
+  .hours-bar-fill.under-target{ background:#93c5fd; }
+  .hours-bar-fill.zero        { background:transparent; }
+
+  /* Summary card row */
+  .hours-summary-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .hours-stat-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:12px 18px; flex:1; min-width:150px;
+  }
+  .hours-stat-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+  .hours-stat-value { font-size:20px; font-weight:700; font-family:'DM Mono',monospace; color:var(--accent); }
+  .hours-stat-sub   { font-size:11px; color:var(--muted); margin-top:2px; }
+
+  /* ── Disponibilidades: cell inputs (max 3 chars visible) ── */
+  .dispo-cell { padding: 0 1px !important; min-width: 54px !important; }
+  .dispo-cell-input {
+    display: block;
+    width: 50px; height: 28px;
+    margin: 0 auto;
+    border: none; background: transparent;
+    text-align: center; color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 7px; font-weight: 700;
+    outline: none; cursor: text;
+    text-transform: uppercase; letter-spacing: .2px;
+    padding: 0 2px;
+    max-width: 50px;
+    border-radius: 4px;
+    transition: background .15s;
+  }
+  .dispo-cell-input:hover { background: var(--surface2); }
+  .dispo-cell-input:focus { background: var(--surface2); }
+  .dispo-cell-input::placeholder { color: var(--muted); font-size: 9px; opacity: .4; }
+
+
+/* ── Password Modal ─────────────────────────────────────────── */
+.pwd-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.72);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.pwd-overlay.hidden { display: none; }
+.pwd-modal {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 36px 40px 32px;
+  width: 340px;
+  text-align: center;
+  box-shadow: 0 24px 80px #00000099;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+}
+.pwd-modal-icon { font-size: 36px; }
+.pwd-modal h2 { font-size: 17px; font-weight: 700; color: var(--accent); letter-spacing: .04em; }
+.pwd-modal p  { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.pwd-input-row { display: flex; gap: 8px; width: 100%; }
+.pwd-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 14px; border-radius: 9px;
+  font-size: 16px; text-align: center; letter-spacing: .25em;
+  font-family: 'DM Mono', monospace; outline: none;
+  transition: border-color .2s;
+}
+.pwd-input:focus { border-color: var(--accent); }
+.pwd-input.error { border-color: #ff4d4d; animation: shake .3s ease; }
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+}
+.pwd-btn-row { display: flex; gap: 10px; width: 100%; }
+.pwd-btn-confirm {
+  flex: 1; background: linear-gradient(135deg,var(--accent2),var(--accent));
+  color: #fff; font-weight: 600; font-size: 14px;
+  padding: 10px; border-radius: 9px; border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; transition: opacity .2s;
+}
+.pwd-btn-confirm:hover { opacity: .85; }
+.pwd-btn-cancel {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); font-size: 14px; padding: 10px; border-radius: 9px;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .2s;
+}
+.pwd-btn-cancel:hover { border-color: var(--accent); color: var(--accent); }
+.pwd-err-msg { font-size: 11px; color: #ff6b6b; min-height: 16px; }
+.pwd-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 700; padding: 3px 10px;
+  border-radius: 99px; letter-spacing: .04em;
+}
+.pwd-badge.unlocked { background: #14532d33; color: #4ade80; border: 1px solid #14532d; }
+.pwd-badge.locked   { background: #1e3a5f33; color: #93c5fd; border: 1px solid #1e3a5f; }
+
+
+/* ── Change Password Card ───────────────────────────────────── */
+.pwd-change-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+}
+.pwd-change-row {
+  display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+}
+.pwd-change-row .cfg-field label {
+  font-size: 11px; color: var(--muted); display: block;
+  margin-bottom: 5px; text-transform: uppercase; letter-spacing: .05em;
+}
+.cfg-input-pwd {
+  width: 160px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+  letter-spacing: .1em;
+}
+.cfg-input-pwd:focus { border-color: var(--accent); }
+.cfg-input-pwd.error { border-color: #ff4d4d; }
+.cfg-input-pwd.success { border-color: #4ade80; }
+.pwd-change-msg {
+  font-size: 11px; margin-top: 8px; min-height: 16px;
+  display: block;
+}
+.pwd-change-msg.ok   { color: #4ade80; }
+.pwd-change-msg.fail { color: #ff6b6b; }
+.btn-change-pwd {
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff; font-size: 13px; font-weight: 600;
+  padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; transition: opacity .2s; white-space: nowrap;
+}
+.btn-change-pwd:hover { opacity: .85; }
+
+
+  /* ── Light theme extra overrides ── */
+  body.light-theme .nurse-row td.sunday-col  { background: #ff000014; }
+  body.light-theme .nurse-row td.saturday-col { background: #ff8c0014; }
+  body.light-theme thead th.sunday-col  { color: #cc0000; }
+  body.light-theme thead th.saturday-col { color: #cc6600; }
+  body.light-theme .shift-popup { background: #ffffff; border-color: #c8d4e0; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  body.light-theme .shift-option:hover { background: #e8edf3; }
+  body.light-theme .hours-stat-card { background: #ffffff; border-color: #c8d4e0; }
+  body.light-theme .swap-form-card, body.light-theme .swap-list-card { background: #ffffff; border-color: #c8d4e0; }
+  body.light-theme .config-add-card { background: #ffffff; border-color: #c8d4e0; }
+  body.light-theme input[type="text"], body.light-theme input[type="number"], body.light-theme input[type="password"], body.light-theme input[type="date"] {
+    background: #f8fafc; border-color: #c8d4e0; color: #1a2233;
+  }
+  body.light-theme select { background: #f8fafc; border: 1px solid #c8d4e0; color: #1a2233; border-radius: 8px; padding: 8px 12px; }
+  body.light-theme .needs-input { background: #f8fafc; color: #1a2233; }
+  body.light-theme .dispo-cell-input { background: #f8fafc; color: #1a2233; border-color: #c8d4e0; }
+  body.light-theme .btn-ghost { background: #f0f4f8; border-color: #c8d4e0; color: #1a2233; }
+  body.light-theme .btn-danger { color: #cc0000; border-color: #cc000044; }
+  body.light-theme .row-totals td { background: #e8edf3; }
+  body.light-theme .hours-pill { background: #e8edf3; color: #1a2233; }
+  body.light-theme .hours-bar-track { background: #d0dae5; }
+
+  
+  td.paste-selected {
+    outline: 2px solid var(--accent) !important;
+    background: rgba(0,180,216,0.18) !important;
+    cursor: cell;
+  }
+  #scheduleTable td, #scheduleTableM td {
+    cursor: pointer;
+  }
+
+</style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+
+<!-- ── Firebase Loading Overlay ────────────────────────────── -->
+<div id="fbLoadingOverlay" style="position:fixed;inset:0;z-index:9999;background:#0b1120;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;">
+  <div style="font-size:48px">🏥</div>
+  <div style="font-size:16px;font-weight:700;color:#00b4d8;letter-spacing:.08em;text-transform:uppercase">Nephrocare Funchal</div>
+  <div id="fbLoadMsg" style="font-size:13px;color:#5a7395">A ligar à base de dados…</div>
+  <div style="width:200px;height:3px;background:#1e2d45;border-radius:2px;overflow:hidden">
+    <div id="fbLoadBar" style="width:0%;height:100%;background:linear-gradient(90deg,#0077b6,#00b4d8);border-radius:2px;transition:width .4s"></div>
+  </div>
+</div>
+
+<!-- ── Password Modal ─────────────────────────────────────── -->
+<div class="pwd-overlay hidden" id="pwdOverlay">
+  <div class="pwd-modal">
+    <div class="pwd-modal-icon">🔒</div>
+    <h2 id="pwdModalTitle">Acesso Restrito</h2>
+    <p id="pwdModalDesc">Introduza a password para editar o horário.</p>
+    <div class="pwd-input-row">
+      <input type="password" class="pwd-input" id="pwdInput" placeholder="••••" maxlength="20"
+        onkeydown="if(event.key==='Enter')confirmPwd()" autocomplete="off" />
+    </div>
+    <div class="pwd-err-msg" id="pwdErrMsg"></div>
+    <div class="pwd-btn-row">
+      <button class="pwd-btn-confirm" onclick="confirmPwd()">Confirmar</button>
+      <button class="pwd-btn-cancel" onclick="cancelPwd()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="view-home" style="position:relative;">
+  <div class="home-brand">
+    <div class="home-brand-icon">🏥</div>
+    <h1>Nephrocare Funchal</h1>
+    <p>Sistema de Gestão de Enfermagem</p>
+  </div>
+  <div style="position:absolute;top:18px;right:24px;">
+    <button id="themeToggleBtn" onclick="toggleTheme()"
+      style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:7px 16px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:7px;transition:all .2s;">
+      <span id="themeToggleIcon">☀️</span>
+      <span id="themeToggleLabel">Tema Claro</span>
+    </button>
+  </div>
+  <div class="home-cards">
+    <div class="home-card" onclick="navigate('schedule')">
+      <div class="home-card-icon">🗓</div>
+      <div class="home-card-title">Consulta Horário Funchal</div>
+      <div class="home-card-desc">Ver e editar o horário mensal de enfermagem</div>
+    </div>
+    <div class="home-card" onclick="navigate('schedule-machico')">
+      <div class="home-card-icon">🗓</div>
+      <div class="home-card-title">Consulta Horário Machico</div>
+      <div class="home-card-desc">Ver e editar o horário mensal de enfermagem</div>
+    </div>
+    <div class="home-card" onclick="navigate('swaps')">
+      <div class="home-card-icon">🔄</div>
+      <div class="home-card-title">Pedido de Trocas</div>
+      <div class="home-card-desc">Submeter e gerir pedidos de troca de turno</div>
+      <span class="home-badge" id="pendingBadge" style="display:none">● Pendentes</span>
+    </div>
+    <div class="home-card" onclick="navigate('config')">
+      <div class="home-card-icon">⚙️</div>
+      <div class="home-card-title">Configuração 🔒</div>
+      <div class="home-card-desc">Gerir turnos: siglas, significados e horas</div>
+    </div>
+    <div class="home-card" onclick="navigate('hours')">
+      <div class="home-card-icon">🕐</div>
+      <div class="home-card-title">Contagem de Horas</div>
+      <div class="home-card-desc">Horas semanais por enfermeiro(a) com base nos turnos atribuídos</div>
+    </div>
+    <div class="home-card" onclick="navigate('disponibilidades')">
+      <div class="home-card-icon">📋</div>
+      <div class="home-card-title">Disponibilidades</div>
+      <div class="home-card-desc">Registar disponibilidade mensal de cada enfermeiro(a)</div>
+    </div>
+  </div>
+</div>
+<div id="view-schedule" class="view-hidden">
+
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">🏥</div>
+    <div class="brand-text">
+      <h1>Nephrocare Funchal</h1>
+      <p>Horário de Enfermagem</p>
+    </div>
+  </div>
+  <div class="header-controls"><button class="btn-back" onclick="navigate('home')">← Início</button>
+    <div class="month-nav">
+      <button id="prevMonth">‹</button>
+      <div class="month-display" id="monthDisplay"></div>
+      <button id="nextMonth">›</button>
+    </div>
+    <button class="btn-ghost" id="schedLockBtn" onclick="toggleScheduleLock()" title="Bloqueado – clique para editar">🔒 Bloqueado</button>
+      
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:13px;color:var(--muted)">🔍</span>
+      <input type="text" id="scheduleFilterInput" placeholder="Filtrar enfermeiro…"
+        style="width:180px;padding:7px 11px;background:var(--surface2);border:1px solid var(--border);
+               color:var(--text);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
+        oninput="filterScheduleTable(this.value)">
+      <button onclick="document.getElementById('scheduleFilterInput').value='';filterScheduleTable('');"
+        style="background:var(--surface);border:1px solid var(--border);color:var(--muted);
+               border-radius:7px;padding:5px 9px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;">✕</button>
+    </div>
+      <button class="btn-ghost" id="exportBtn">📥 Exportar Excel</button>
+    <button class="btn-ghost" id="clearMonthBtn">🗑 Limpar mês</button>
+  </div>
+</header>
+
+<div class="legend-bar">
+  <span class="legend-label">Turnos:</span>
+  <div class="legend-items" id="legendItems"></div>
+</div>
+
+<div class="table-wrapper">
+
+  <!-- Schedule table -->
+  <table id="scheduleTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <!-- Add nurse -->
+  <div id="addNurseSection">
+  <div class="add-nurse-row">
+    <input type="text" id="nurseInput" placeholder="Nome do enfermeiro(a)…" maxlength="40"/>
+    <button class="btn-primary" id="addNurseBtn">+ Adicionar Enfermeiro(a)</button>
+  </div>
+  <span class="locked-hint">🔒 Desbloqueie o horário para adicionar enfermeiros.</span>
+  </div>
+
+  <!-- Needs section -->
+  <div class="needs-section">
+    <div class="needs-title">Necessidades de Pessoal</div>
+    <table id="needsTable">
+      <thead id="needsHead"></thead>
+      <tbody id="needsBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Shift popup -->
+<div class="shift-popup hidden" id="shiftPopup"></div>
+
+
+</div><!-- /view-schedule -->
+<div id="view-schedule-machico" class="view-hidden">
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">🏥</div>
+    <div class="brand-text">
+      <h1>Nephrocare Machico</h1>
+      <p>Horário de Enfermagem</p>
+    </div>
+  </div>
+  <div class="header-controls"><button class="btn-back" onclick="navigate('home')">← Início</button>
+    <div class="month-nav">
+      <button id="prevMonthM">‹</button>
+      <div class="month-display" id="monthDisplayM"></div>
+      <button id="nextMonthM">›</button>
+    </div>
+    <button class="btn-ghost" id="schedLockBtnM" onclick="toggleScheduleLockM()" title="Bloqueado – clique para editar">🔒 Bloqueado</button>
+      
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:13px;color:var(--muted)">🔍</span>
+      <input type="text" id="scheduleFilterInputM" placeholder="Filtrar enfermeiro…"
+        style="width:180px;padding:7px 11px;background:var(--surface2);border:1px solid var(--border);
+               color:var(--text);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
+        oninput="filterScheduleTableM(this.value)">
+      <button onclick="document.getElementById('scheduleFilterInputM').value='';filterScheduleTableM('');"
+        style="background:var(--surface);border:1px solid var(--border);color:var(--muted);
+               border-radius:7px;padding:5px 9px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;">✕</button>
+    </div>
+      <button class="btn-ghost" id="exportBtnM">📥 Exportar Excel</button>
+    <button class="btn-ghost" id="clearMonthBtnM">🗑 Limpar mês</button>
+  </div>
+</header>
+
+<div class="legend-bar">
+  <span class="legend-label">Turnos:</span>
+  <div class="legend-items" id="legendItemsM"></div>
+</div>
+
+<div class="table-wrapper">
+
+  <!-- Schedule table -->
+  <table id="scheduleTableM">
+    <thead id="tableHeadM"></thead>
+    <tbody id="tableBodyM"></tbody>
+  </table>
+
+  <!-- Add nurse -->
+  <div id="addNurseSectionM">
+  <div class="add-nurse-row">
+    <input type="text" id="nurseInputM" placeholder="Nome do enfermeiro(a)…" maxlength="40"/>
+    <button class="btn-primary" id="addNurseBtnM">+ Adicionar Enfermeiro(a)</button>
+  </div>
+  <span class="locked-hint">🔒 Desbloqueie o horário para adicionar enfermeiros.</span>
+  </div>
+
+  <!-- Needs section -->
+  <div class="needs-section">
+    <div class="needs-title">Necessidades de Pessoal</div>
+    <table id="needsTableM">
+      <thead id="needsHeadM"></thead>
+      <tbody id="needsBodyM"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Shift popup -->
+<div class="shift-popup hidden" id="shiftPopupM"></div>
+
+</div><!-- /view-schedule-machico -->
+
+
+<div id="view-swaps" class="view-hidden">
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🏥</div>
+      <div class="brand-text">
+        <h1>Nephrocare Funchal</h1>
+        <p>Pedido de Trocas</p>
+      </div>
+    </div>
+    <button class="btn-back" onclick="navigate('home')">← Início</button>
+  </header>
+
+  <div class="swaps-wrapper">
+
+    <!-- Form -->
+    <div class="swap-form-card">
+      <div class="swap-form-title">✏️ Novo Pedido</div>
+
+      <div class="swap-field">
+        <label>📅 Data da troca</label>
+        <input type="date" id="swapDate">
+      </div>
+
+      <div class="swap-field">
+        <label>👤 Pessoa que tem o turno</label>
+        <select id="swapFromNurse"><option value="">— Selecionar —</option></select>
+      </div>
+
+      <div class="swap-field">
+        <label>🔵 Turno atual (do enfermeiro selecionado)</label>
+        <input type="text" id="swapCurrentShift" readonly
+          style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);
+          color:var(--accent);border-radius:8px;font-family:'DM Mono',monospace;font-size:14px;
+          font-weight:700;outline:none;cursor:default;box-sizing:border-box;"
+          placeholder="— Automático —">
+      </div>
+
+      <div class="swap-field">
+        <label>🔄 Turno que fica para esta pessoa (após troca)</label>
+        <select id="swapShiftFrom"><option value="">— Selecionar —</option></select>
+      </div>
+
+      <div class="swap-field">
+        <label>🤝 Pessoa que aceita a troca</label>
+        <select id="swapToNurse"><option value="">— Selecionar —</option></select>
+      </div>
+
+      <div class="swap-field">
+        <label>🔄 Turno que fica para esta pessoa (após troca)</label>
+        <select id="swapShiftTo"><option value="">— Selecionar —</option></select>
+      </div>
+
+      <div class="swap-field">
+        <label>🏥 Clínica</label>
+        <select id="swapClinica" style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;">
+          <option value="funchal">Nephrocare Funchal</option>
+          <option value="machico">Nephrocare Machico</option>
+        </select>
+      </div>
+
+      <button class="btn-submit-swap" onclick="submitSwapRequest()">➕ Submeter Pedido</button>
+    </div>
+
+    <!-- List -->
+    <div class="swap-list-card">
+      <div class="swap-list-title">📋 Pedidos</div>
+      <div class="swap-tabs">
+        <button class="swap-tab active" data-tab="pending"  onclick="setSwapTab('pending')">⏳ Pendentes</button>
+        <button class="swap-tab"        data-tab="approved" onclick="setSwapTab('approved')">✅ Aprovados</button>
+        <button class="swap-tab"        data-tab="rejected" onclick="setSwapTab('rejected')">❌ Rejeitados</button>
+      </div>
+      <div id="swapListContainer"></div>
+    </div>
+
+  </div>
+</div><!-- /view-swaps -->
+
+
+
+<div id="view-config" class="view-hidden">
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🏥</div>
+      <div class="brand-text">
+        <h1>Nephrocare Funchal</h1>
+        <p>Configuração de Turnos</p>
+      </div>
+    </div>
+    <button class="btn-back" onclick="navigate('home')">← Início</button>
+  </header>
+
+  <div class="config-wrapper">
+    <div class="config-notice">
+      Alterações à <b>sigla</b>, <b>cor</b>, <b>significado</b> ou <b>horas</b> são aplicadas imediatamente à legenda e ao pedido de trocas.<br>
+      ⚠️ Alterar a <b>sigla</b> de um turno não atualiza retroativamente os turnos já atribuídos no horário.
+    </div>
+
+    <div class="config-section-title">⚙️ Turnos Existentes</div>
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Cor</th><th>Sigla</th><th>Significado</th><th>Horas</th><th>Guardar</th><th>Eliminar</th>
+        </tr>
+      </thead>
+      <tbody id="configTableBody"></tbody>
+    </table>
+
+    <div class="config-section-title">➕ Novo Turno</div>
+    <div class="config-add-card">
+      <div class="config-add-row">
+        <div class="cfg-field"><label>Sigla</label><input type="text" id="newKey" class="cfg-input cfg-input-key" maxlength="6" placeholder="Ex: MN"></div>
+        <div class="cfg-field"><label>Significado</label><input type="text" id="newLabel" class="cfg-input cfg-input-label" maxlength="30" placeholder="Ex: Manhã-Noite"></div>
+        <div class="cfg-field"><label>Horas</label><input type="number" id="newHours" class="cfg-input cfg-input-hours" min="0" max="24" value="8"></div>
+        <div class="cfg-field"><label>Cor</label><input type="color" id="newColor" class="cfg-input cfg-input-color" value="#0077b6"></div>
+        <div class="cfg-field" style="padding-bottom:1px"><label>&nbsp;</label><button class="btn-add-shift" onclick="addNewShift()">➕ Adicionar</button></div>
+      </div>
+    </div>
+  </div>
+
+
+    <div class="config-section-title">👥 Enfermeiros na Contagem de Horas</div>
+    <div class="config-add-card" id="hoursNursesSection" style="padding:18px 20px;">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+        Seleciona quais os enfermeiros que aparecem no menu <b style="color:var(--accent)">Contagem de Horas</b>. Por omissão, todos os enfermeiros são incluídos.
+      </p>
+      <div id="hoursNursesList" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+    </div>
+
+    <div class="config-section-title">🔑 Segurança</div>
+    <div class="pwd-change-card">
+      <div class="config-notice" style="margin-bottom:16px;">
+        Altere a password de acesso à edição do horário e a este menu de configuração.
+      </div>
+      <div class="pwd-change-row">
+        <div class="cfg-field">
+          <label>Password Atual</label>
+          <input type="password" id="pwdCurrent" class="cfg-input cfg-input-pwd" placeholder="••••" maxlength="30" autocomplete="off">
+        </div>
+        <div class="cfg-field">
+          <label>Nova Password</label>
+          <input type="password" id="pwdNew" class="cfg-input cfg-input-pwd" placeholder="Nova" maxlength="30" autocomplete="off">
+        </div>
+        <div class="cfg-field">
+          <label>Confirmar Nova</label>
+          <input type="password" id="pwdConfirm" class="cfg-input cfg-input-pwd" placeholder="Confirmar" maxlength="30" autocomplete="off"
+            onkeydown="if(event.key==='Enter') changePassword()">
+        </div>
+        <div class="cfg-field" style="padding-bottom:1px">
+          <label>&nbsp;</label>
+          <button class="btn-change-pwd" onclick="changePassword()">🔑 Alterar Password</button>
+        </div>
+      </div>
+      <span class="pwd-change-msg" id="pwdChangeMsg"></span>
+    </div>
+
+  </div>
+</div><!-- /view-config -->
+
+<div id="view-hours" class="view-hidden">
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🏥</div>
+      <div class="brand-text">
+        <h1>Nephrocare Funchal + Machico</h1>
+        <p>Contagem de Horas — Total Combinado</p>
+      </div>
+    </div>
+    <button class="btn-back" onclick="navigate('home')">← Início</button>
+  </header>
+
+  <div class="hours-wrapper">
+    <div class="hours-controls">
+      <div class="hours-month-nav">
+        <button onclick="hoursChangeMonth(-1)">‹</button>
+        <div class="hours-month-display" id="hoursMonthDisplay"></div>
+        <button onclick="hoursChangeMonth(1)">›</button>
+      </div>
+    </div>
+
+    <!-- Contracted hours target -->
+    <div class="hours-target-bar">
+      <label>Horas contratuais / semana:</label>
+      <input type="number" id="hoursTargetInput" class="hours-target-input"
+             min="1" max="60" value="35"
+             onchange="saveHoursTarget();renderHoursPage()">
+      <span class="hours-target-suffix">h</span>
+      <span class="hours-target-hint">— usado para comparar horas atribuídas com o objetivo semanal de cada enfermeiro(a)</span>
+    </div>
+
+    <div id="hoursSummaryRow" style="display:none"></div>
+    <div class="hours-legend" style="display:none">
+      <span><span class="hours-pill at-target">35h</span> Dentro do objetivo</span>
+      <span><span class="hours-pill over-target">40h</span> Acima do objetivo</span>
+      <span><span class="hours-pill under-target">28h</span> Abaixo do objetivo</span>
+      <span><span class="hours-pill zero">—</span> Sem turnos</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="hours-table" id="hoursTable">
+        <thead id="hoursHead"></thead>
+        <tbody id="hoursBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div><!-- /view-hours -->
+<div id="view-disponibilidades" class="view-hidden">
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">🏥</div>
+    <div class="brand-text">
+      <h1>Nephrocare Funchal</h1>
+      <p>Disponibilidades</p>
+    </div>
+  </div>
+  <div class="header-controls">
+    <button class="btn-back" onclick="navigate('home')">← Início</button>
+    <div class="month-nav">
+      <button id="dispoPrevMonth">‹</button>
+      <div class="month-display" id="dispoMonthDisplay"></div>
+      <button id="dispoNextMonth">›</button>
+    </div>
+    <button class="btn-ghost" id="dispoExportBtn">📥 Exportar Excel</button>
+    <button class="btn-ghost" id="dispoClearBtn">🗑 Limpar mês</button>
+  </div>
+</header>
+
+<div style="padding:16px 24px 0 24px;">
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;max-width:420px;">
+    <span style="font-size:18px;">🔍</span>
+    <div style="flex:1;">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Filtrar por enfermeiro</div>
+      <input type="text" id="dispoFilterInput" placeholder="Escreve o nome…"
+        style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"
+        oninput="filterDispoTable(this.value)">
+    </div>
+    <button onclick="document.getElementById('dispoFilterInput').value='';filterDispoTable('');"
+      style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;"
+      title="Limpar filtro">✕ Limpar</button>
+  </div>
+</div>
+<div class="table-wrapper">
+  <table id="dispoTable">
+    <thead id="dispoTableHead"></thead>
+    <tbody id="dispoTableBody"></tbody>
+  </table>
+</div>
+
+</div><!-- /view-disponibilidades -->
+
+
+<script>
+
+// ── Shifts ────────────────────────────────────────────────────────────────────
+const SHIFTS_KEY = 'nc_shifts';
+const DEFAULT_SHIFTS = [
+  { key:'M',   label:'Manhã',            color:'#0077b6', short:'M',   hours:8  },
+  { key:'T',   label:'Tarde',            color:'#00b4d8', short:'T',   hours:8  },
+  { key:'N',   label:'Noite',            color:'#1d4ed8', short:'N',   hours:12 },
+  { key:'MT',  label:'Manhã-Tarde',      color:'#0891b2', short:'MT',  hours:16 },
+  { key:'TN',  label:'Tarde-Noite',      color:'#0e7490', short:'TN',  hours:20 },
+  { key:'MTN', label:'Dia Completo',     color:'#164e63', short:'MTN', hours:24 },
+  { key:'MP',  label:'Manhã Prolongada', color:'#0369a1', short:'MP',  hours:12 },
+  { key:'NP',  label:'Noite Prolongada', color:'#1e3a8a', short:'NP',  hours:16 },
+  { key:'F',   label:'Folga',            color:'#16a34a', short:'F',   hours:0  },
+  { key:'FL',  label:'Férias',           color:'#ea580c', short:'FL',  hours:0  },
+  { key:'D',   label:'Doença',           color:'#dc2626', short:'D',   hours:0  },
+  { key:'DC',  label:'Dia Comp.',        color:'#7c3aed', short:'DC',  hours:0  },
+  { key:'FOR', label:'Formação',         color:'#b45309', short:'FOR', hours:8  },
+  { key:'AV',  label:'Acessos Vasc.',    color:'#065f46', short:'AV',  hours:8  },
+  { key:'PEF', label:'Prog. Ex. Físico', color:'#4d7c0f', short:'PEF', hours:8  },
+  { key:'X',   label:'X',               color:'#374151', short:'X',   hours:0  },
+];
+
+
+const WEEKDAYS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MONTHS_PT   = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                     'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const NEEDS_ROWS = [
+  { key:'M', label:'☀ Manhã',  cls:'row-manha' },
+  { key:'T', label:'🌤 Tarde',  cls:'row-tarde' },
+  { key:'N', label:'🌙 Noite',  cls:'row-noite' },
+];
+
+
+// ── Shift → Period mapping (auto-fill needs) ──────────────────────────────────
+const SHIFT_PERIODS = {
+  'M':   { M:1, T:0, N:0 },
+  'MT':  { M:1, T:1, N:0 },
+  'T':   { M:0, T:1, N:0 },
+  'N':   { M:0, T:0, N:1 },
+  'TN':  { M:0, T:1, N:1 },
+  'MP':  { M:1, T:1, N:0 },
+  'NP':  { M:0, T:0, N:1 },
+  'MTN': { M:1, T:1, N:1 },
+  'MA':  { M:1, T:0, N:0 },
+  'TA':  { M:0, T:1, N:0 },
+  'NA':  { M:0, T:0, N:1 },
+};
+
+// ── Firebase Configuration ────────────────────────────────────────────────────
+// ⚠️  PREENCHE COM AS TUAS CREDENCIAIS DO FIREBASE  ⚠️
+// Vai a: https://console.firebase.google.com → Projeto → Definições → Aplicações Web
+const firebaseConfig = {
+  apiKey:            "AIzaSyAahjUk0A4pdBgw7gqGpKWfynnEGaQIWmM",
+  authDomain:        "horario-9d026.firebaseapp.com",
+  databaseURL:       "https://horario-9d026-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "horario-9d026",
+  storageBucket:     "horario-9d026.firebasestorage.app",
+  messagingSenderId: "895198279178",
+  appId:             "1:895198279178:web:2aacc92ea2531ec7d211f3",
+  measurementId:     "G-47ZBYDQB55"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const FB_ROOT = 'nephrocare';  // raiz dos dados na Firebase
+
+// ── Cache local (espelha os dados da Firebase) ────────────────────────────────
+const fbCache = {};
+
+// Guarda um valor no cache local E na Firebase
+function fbSet(key, jsonStr) {
+  fbCache[key] = jsonStr;
+  db.ref(`${FB_ROOT}/${key}`).set(jsonStr);
+}
+
+// Lê do cache local (já carregado na inicialização)
+function fbGet(key) {
+  return fbCache[key] || null;
+}
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+const schedKey  = (y,m) => `nc_sched_${y}_${m}`;
+const needsKey  = (y,m) => `nc_needs_${y}_${m}`;
+const NURSES_KEY = 'nc_nurses';
+const NURSES_KEY_M = 'nc_nurses_machico';
+const COUNTER_KEY = 'nc_counter';
+
+const loadJSON = k => { try{ return JSON.parse(fbGet(k))||null; }catch{ return null; } };
+let SHIFTS = [];  // preenchido após carregamento Firebase
+const saveShifts = () => fbSet(SHIFTS_KEY, JSON.stringify(SHIFTS));
+const loadSchedule = (y,m) => loadJSON(schedKey(y,m))  || {};
+const loadNeeds    = (y,m) => loadJSON(needsKey(y,m))  || {};
+const loadNurses   = ()    => loadJSON(NURSES_KEY)      || [];
+const saveSchedule = (y,m,d) => fbSet(schedKey(y,m),  JSON.stringify(d));
+const saveNeeds    = (y,m,d) => fbSet(needsKey(y,m),  JSON.stringify(d));
+let saveNurses   = a      => fbSet(NURSES_KEY,       JSON.stringify(a));
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const now0 = new Date();
+let curYear  = now0.getFullYear();
+let curMonth = now0.getMonth();
+let nurseList    = [];   // preenchido após Firebase
+let scheduleData = {};
+let needsData    = {};
+let popupNurse = null, popupDay = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const daysInMonth = (y,m) => new Date(y,m+1,0).getDate();
+const shiftByKey  = k     => SHIFTS.find(s=>s.key===k);
+
+function dayColClass(d){
+  const dow = new Date(curYear,curMonth,d).getDay();
+  const today = new Date();
+  const isT = today.getFullYear()===curYear && today.getMonth()===curMonth && d===today.getDate();
+  return [dow===0?'sunday-col':'', dow===6?'saturday-col':'', isT?'today-col':''].filter(Boolean).join(' ');
+}
+function dayHeadClass(d){
+  const dow = new Date(curYear,curMonth,d).getDay();
+  const today = new Date();
+  const isT = today.getFullYear()===curYear && today.getMonth()===curMonth && d===today.getDate();
+  return [dow===0?'sunday':'', dow===6?'saturday':'', isT?'today-col':''].filter(Boolean).join(' ');
+}
+
+// ── Legend ────────────────────────────────────────────────────────────────────
+function renderLegend(){
+  document.getElementById('legendItems').innerHTML = SHIFTS.map(s=>`
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:${s.color}">${s.short}</div>
+      <span>${s.label}</span>
+    </div>`).join('');
+}
+
+// ── Shared header rows (days + weekdays) ──────────────────────────────────────
+function buildHeaderRows(colLabel){
+  const days = daysInMonth(curYear, curMonth);
+  const today = new Date();
+  const isCM  = today.getFullYear()===curYear && today.getMonth()===curMonth;
+  let h = '';
+  // day numbers
+  h += `<tr class="row-days"><th class="col-name">${colLabel}</th>`;
+  for(let d=1;d<=days;d++){
+    const isT=isCM&&d===today.getDate();
+    h += `<th class="${isT?'today-col':''}">${String(d).padStart(2,'0')}</th>`;
+  }
+  h += '</tr>';
+  // weekdays
+  h += `<tr class="row-weekday"><th class="col-name"></th>`;
+  for(let d=1;d<=days;d++){
+    const dow=new Date(curYear,curMonth,d).getDay();
+    h += `<th class="${dayHeadClass(d)}">${WEEKDAYS_PT[dow]}</th>`;
+  }
+  h += '</tr>';
+  return h;
+}
+
+// ── Schedule table ────────────────────────────────────────────────────────────
+function renderTable(){
+  const days = daysInMonth(curYear, curMonth);
+  document.getElementById('tableHead').innerHTML = buildHeaderRows(
+    `Enfermeiro(a)<span class="nurse-count">(${nurseList.length})</span>`
+  );
+
+  const body = document.getElementById('tableBody');
+  if(!nurseList.length){
+    body.innerHTML=`<tr><td colspan="${days+1}" class="empty-msg">Nenhum enfermeiro adicionado. Use o campo abaixo para adicionar.</td></tr>`;
+    return;
+  }
+
+  let b = '';
+  for(const nurse of nurseList){
+    b += `<tr class="nurse-row" draggable="true" data-nurse="${nurse.id}">`;
+    b += `<td class="col-name"><span class="drag-handle" title="Arrastar para reordenar">⠿</span><span title="${nurse.name}">${nurse.name}</span>
+          <button class="btn-danger" onclick="removeNurse('${nurse.id}')">✕</button></td>`;
+    for(let d=1;d<=days;d++){
+      const sk=(scheduleData[nurse.id]||{})[d];
+      const s=sk?shiftByKey(sk):null;
+      b += `<td class="${dayColClass(d)}" data-day="${d}" onclick="openPopup(this,'${nurse.id}',${d})" ${s ? `style="background:${s.color}"` : ''}>` ;
+      if(s)  b += `<div class="shift-chip">${s.short}</div>`;
+      else if(sk) b += `<div class="shift-free">${sk}</div>`;
+      b += `</td>`;
+    }
+    b += '</tr>';
+  }
+  // totals
+  b += '<tr class="row-totals"><td class="col-name">Turnos / dia</td>';
+  for(let d=1;d<=days;d++){
+    let c=0; for(const n of nurseList) if((scheduleData[n.id]||{})[d]) c++;
+    b += `<td>${c||''}</td>`;
+  }
+  b += '</tr>';
+  body.innerHTML = b;
+}
+
+// ── Needs table ───────────────────────────────────────────────────────────────
+function renderNeeds(){
+  const days = daysInMonth(curYear, curMonth);
+  document.getElementById('needsHead').innerHTML = buildHeaderRows('Período');
+
+  let b = '';
+  for(const row of NEEDS_ROWS){
+    b += `<tr class="needs-row ${row.cls}"><td class="col-name">${row.label}</td>`;
+    for(let d=1;d<=days;d++){
+      const val=((needsData[row.key]||{})[d])||'';
+      b += `<td class="${dayColClass(d)}">
+        <input type="number" min="0" max="99" class="needs-input"
+               value="${val}" data-period="${row.key}" data-day="${d}"
+               onchange="saveNeedCell(this)">
+      </td>`;
+    }
+    b += '</tr>';
+  }
+  document.getElementById('needsBody').innerHTML = b;
+}
+
+function saveNeedCell(inp){
+  const p=inp.dataset.period, d=parseInt(inp.dataset.day), v=inp.value.trim();
+  if(!needsData[p]) needsData[p]={};
+  if(v===''||v==='0') delete needsData[p][d];
+  else needsData[p][d]=parseInt(v);
+  saveNeeds(curYear,curMonth,needsData);
+}
+
+
+// ── Auto-recalculate needs for a given day ────────────────────────────────────
+function recalcNeedsForDay(day){
+  const totals = { M:0, T:0, N:0 };
+  for(const nurse of nurseList){
+    const sk = (scheduleData[nurse.id]||{})[day];
+    const periods = sk ? SHIFT_PERIODS[sk] : null;
+    if(periods){ totals.M += periods.M; totals.T += periods.T; totals.N += periods.N; }
+  }
+  for(const period of ['M','T','N']){
+    if(!needsData[period]) needsData[period]={};
+    if(totals[period]>0) needsData[period][day]=totals[period];
+    else delete needsData[period][day];
+  }
+  saveNeeds(curYear,curMonth,needsData);
+}
+
+// ── Popup ─────────────────────────────────────────────────────────────────────
+function openPopup(cell, nurseId, day){
+  popupNurse=nurseId; popupDay=day;
+  const popup=document.getElementById('shiftPopup');
+  const curVal=(scheduleData[nurseId]||{})[day]||'';
+  const isFree=curVal && !shiftByKey(curVal);
+  let html = SHIFTS.map(s=>`
+    <div class="shift-option" onclick="setShift('${s.key}')">
+      <div class="legend-swatch" style="background:${s.color};min-width:28px;height:16px;border-radius:3px;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#fff;letter-spacing:-.3px;flex-shrink:0;padding:0 3px;">${s.short}</div>
+      <span>${s.label}</span>
+    </div>`).join('');
+  html += `<div class="shift-option clear" onclick="setShift(null)">✕ Limpar célula</div>`;
+  html += `<div class="popup-free-row">
+    <input type="text" id="freeShiftInput" class="popup-free-input" maxlength="12"
+      placeholder="✏ Escrita livre…" value="${isFree?curVal:''}"
+      onkeydown="if(event.key==='Enter'){event.stopPropagation();commitFreeShift();}"
+      onclick="event.stopPropagation()">
+    <button class="btn-confirm" onclick="event.stopPropagation();commitFreeShift()">✓</button>
+  </div>`;
+  popup.innerHTML = html;
+  popup.classList.remove('hidden');
+
+  const rect=cell.getBoundingClientRect();
+  const popH=popup.offsetHeight||340;
+  const popW=popup.offsetWidth||295;
+  const spaceAbove=rect.top;
+  const spaceBelow=window.innerHeight-rect.bottom;
+  let top, left;
+  if(spaceAbove>=popH+4 || spaceAbove>=spaceBelow){
+    top=rect.top-popH-4;
+  } else {
+    top=rect.bottom+4;
+  }
+  left=rect.left;
+  if(left+popW>window.innerWidth) left=window.innerWidth-popW-4;
+  if(left<0) left=4;
+  if(top<0) top=4;
+  if(top+popH>window.innerHeight) top=window.innerHeight-popH-4;
+  popup.style.position='fixed';
+  popup.style.top=top+'px';
+  popup.style.left=left+'px';
+}
+function setShift(key){
+  if(!scheduleData[popupNurse]) scheduleData[popupNurse]={};
+  if(key) scheduleData[popupNurse][popupDay]=key;
+  else    delete scheduleData[popupNurse][popupDay];
+  saveSchedule(curYear,curMonth,scheduleData);
+  recalcNeedsForDay(popupDay);
+  closePopup(); renderTable(); renderNeeds();
+}
+function closePopup(){
+  document.getElementById('shiftPopup').classList.add('hidden');
+  popupNurse=null; popupDay=null;
+}
+
+function commitFreeShift(){
+  const inp=document.getElementById('freeShiftInput'); if(!inp) return;
+  const val=inp.value.trim().toUpperCase();
+  if(!scheduleData[popupNurse]) scheduleData[popupNurse]={};
+  if(val) scheduleData[popupNurse][popupDay]=val;
+  else    delete scheduleData[popupNurse][popupDay];
+  saveSchedule(curYear,curMonth,scheduleData);
+  recalcNeedsForDay(popupDay);
+  closePopup(); renderTable(); renderNeeds();
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#shiftPopup') && !e.target.closest('.nurse-row td[data-day]')) closePopup();
+});
+
+// ── Nurse management ──────────────────────────────────────────────────────────
+let nurseCounter = parseInt(fbGet(COUNTER_KEY)||'0');
+document.getElementById('addNurseBtn').addEventListener('click', addNurse);
+document.getElementById('nurseInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addNurse(); });
+
+function addNurse(){
+  const inp=document.getElementById('nurseInput');
+  const name=inp.value.trim(); if(!name) return;
+  nurseCounter++;
+  fbSet(COUNTER_KEY, nurseCounter);
+  nurseList.push({ id:'n'+nurseCounter, name });
+  saveNurses(nurseList); inp.value=''; renderTable();
+}
+function removeNurse(id){
+  if(!confirm('Remover este enfermeiro(a) do horário?')) return;
+  nurseList=nurseList.filter(n=>n.id!==id);
+  saveNurses(nurseList); renderTable();
+}
+
+// ── Month navigation ──────────────────────────────────────────────────────────
+function updateMonthDisplay(){
+  document.getElementById('monthDisplay').textContent=`${MONTHS_PT[curMonth]} ${curYear}`;
+}
+function changeMonth(delta){
+  curMonth+=delta;
+  if(curMonth<0){curMonth=11;curYear--;}
+  if(curMonth>11){curMonth=0;curYear++;}
+  scheduleData=loadSchedule(curYear,curMonth);
+  needsData=loadNeeds(curYear,curMonth);
+  updateMonthDisplay(); renderTable(); renderNeeds();
+}
+document.getElementById('prevMonth').addEventListener('click',()=>changeMonth(-1));
+document.getElementById('nextMonth').addEventListener('click',()=>changeMonth(1));
+
+// ── Clear month ───────────────────────────────────────────────────────────────
+document.getElementById('clearMonthBtn').addEventListener('click',()=>{
+  if(!confirm(`Limpar todos os turnos e necessidades de ${MONTHS_PT[curMonth]} ${curYear}?`)) return;
+  scheduleData={}; needsData={};
+  saveSchedule(curYear,curMonth,scheduleData);
+  saveNeeds(curYear,curMonth,needsData);
+  renderTable(); renderNeeds();
+});
+
+// ── CSV Export ────────────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════
+//  EXCEL EXPORT  – ExcelJS formatted workbook
+// ═══════════════════════════════════════════════════════════
+document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+
+function exportToExcel() {
+  try {
+    const days = daysInMonth(curYear, curMonth);
+    const monthLabel = MONTHS_PT[curMonth] + ' ' + curYear;
+    const WKDAYS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+    // ── helpers ──────────────────────────────────────────
+    function hex6(h) { return (h||'000000').replace('#','').padStart(6,'0'); }
+    function fgFill(hex) { return { patternType:'solid', fgColor:{rgb: hex6(hex)}, bgColor:{rgb:'FFFFFF'} }; }
+    function cell(v, s) { return { v, s }; }
+
+    // ── colour palette (white/black theme) ──────────────
+    const BG_HEADER  = 'FFFFFF';
+    const BG_SUBHDR  = 'FFFFFF';
+    const BG_ALT     = 'FFFFFF';
+    const BG_NEEDS   = 'FFFFFF';
+    const BG_TOTALS  = 'FFFFFF';
+    const FG_ACCENT  = '000000';
+    const FG_BODY    = '000000';
+    const FG_MUTED   = '000000';
+    const FG_GREEN   = '000000';
+    const FG_SUN     = '000000';
+    const FG_SAT     = '000000';
+    const BG_SUN     = 'FFFFFF';
+    const BG_SAT     = 'FFFFFF';
+
+    const borderThin = {
+      top:    {style:'thin', color:{rgb:'000000'}},
+      bottom: {style:'thin', color:{rgb:'000000'}},
+      left:   {style:'thin', color:{rgb:'000000'}},
+      right:  {style:'thin', color:{rgb:'000000'}}
+    };
+
+    function baseStyle(bgHex, fgHex, opts={}) {
+      return {
+        fill:      fgFill(bgHex),
+        font:      { name:'Calibri', sz: opts.sz||10, bold:!!opts.bold, color:{rgb: hex6(fgHex)} },
+        alignment: { horizontal: opts.h||'center', vertical:'center', wrapText: false },
+        border:    borderThin
+      };
+    }
+
+    // ════════════════════════════════════════════════════
+    //  Build sheet data (array of arrays of cell objects)
+    // ════════════════════════════════════════════════════
+    const aoa = [];   // array of rows
+    const merges = [];
+    const colWidths = [];
+
+    // ── Row 0: Title banner ──────────────────────────────
+    const titleRow = [];
+    const titleStyle = { ...baseStyle(BG_HEADER, FG_ACCENT, {bold:true, sz:13, h:'center'}) };
+    titleRow.push(cell(`NEPHROCARE FUNCHAL  —  Horário de Enfermagem  —  ${monthLabel}`, titleStyle));
+    for(let d=1; d<=days+1; d++) titleRow.push(cell('', {...baseStyle(BG_HEADER, FG_ACCENT)}));
+    aoa.push(titleRow);
+    merges.push({s:{r:0,c:0}, e:{r:0,c:days+1}});
+
+    // ── Row 1: Day numbers ───────────────────────────────
+    const daysRow = [];
+    daysRow.push(cell('Enfermeiro/a', baseStyle(BG_SUBHDR, FG_MUTED, {bold:true, h:'left'})));
+    for(let d=1; d<=days; d++) {
+      const dow = new Date(curYear,curMonth,d).getDay();
+      const sun = dow===0, sat = dow===6;
+      const bg  = sun ? BG_SUN : sat ? BG_SAT : BG_SUBHDR;
+      const fg  = sun ? FG_SUN : sat ? FG_SAT : FG_BODY;
+      daysRow.push(cell(d, baseStyle(bg, fg, {bold:true, sz:9})));
+    }
+    daysRow.push(cell('Total', baseStyle(BG_SUBHDR, FG_ACCENT, {bold:true})));
+    aoa.push(daysRow);
+
+    // ── Row 2: Weekday names ─────────────────────────────
+    const wkRow = [];
+    wkRow.push(cell('', baseStyle(BG_SUBHDR, FG_MUTED)));
+    for(let d=1; d<=days; d++) {
+      const dow = new Date(curYear,curMonth,d).getDay();
+      const sun = dow===0, sat = dow===6;
+      const bg  = sun ? BG_SUN : sat ? BG_SAT : BG_SUBHDR;
+      const fg  = sun ? FG_SUN : sat ? FG_SAT : FG_MUTED;
+      wkRow.push(cell(WKDAYS[dow], baseStyle(bg, fg, {sz:7})));
+    }
+    wkRow.push(cell('', baseStyle(BG_SUBHDR, FG_MUTED)));
+    aoa.push(wkRow);
+
+    // ── Nurse rows ───────────────────────────────────────
+    for(let ni=0; ni<nurseList.length; ni++) {
+      const nurse = nurseList[ni];
+      const isAlt = ni%2===1;
+      const rowBg = 'FFFFFF';
+      const row   = [];
+
+      row.push(cell(nurse.name, baseStyle(rowBg, FG_BODY, {bold:true, h:'left'})));
+
+      let shiftCount=0;
+      for(let d=1; d<=days; d++) {
+        const dow = new Date(curYear,curMonth,d).getDay();
+        const sun = dow===0, sat = dow===6;
+        const sk  = scheduleData?.[nurse.id]?.[d] || '';
+        const sh  = sk ? SHIFTS.find(s=>s.key===sk) : null;
+        if(sh) {
+          shiftCount++;
+          row.push(cell(sk, baseStyle('FFFFFF', '000000', {bold:true, sz:8})));
+        } else {
+          const bg = sun ? BG_SUN : sat ? BG_SAT : rowBg;
+          row.push(cell(sk||'', baseStyle(bg, sk ? FG_BODY : FG_MUTED, {sz:8})));
+        }
+      }
+      row.push(cell(shiftCount, baseStyle(BG_TOTALS, shiftCount>0 ? FG_GREEN : FG_MUTED, {bold:true})));
+      aoa.push(row);
+    }
+
+    // ── Daily totals row ─────────────────────────────────
+    const totRow2 = [];
+    totRow2.push(cell('TURNOS / DIA', baseStyle(BG_TOTALS, FG_MUTED, {bold:true, sz:8, h:'left'})));
+    for(let d=1; d<=days; d++) {
+      let cnt=0;
+      for(const n of nurseList) if(scheduleData?.[n.id]?.[d]) cnt++;
+      totRow2.push(cell(cnt||'', baseStyle(BG_TOTALS, cnt>0 ? FG_ACCENT : FG_MUTED, {bold:true, sz:8})));
+    }
+    totRow2.push(cell('', baseStyle(BG_TOTALS, FG_MUTED)));
+    aoa.push(totRow2);
+
+    // ── Blank row ────────────────────────────────────────
+    aoa.push([]);
+
+    // ── Necessidades – title ─────────────────────────────
+    const needsTitleRow = [];
+    const ntStyle = baseStyle(BG_HEADER, FG_ACCENT, {bold:true, sz:11, h:'center'});
+    needsTitleRow.push(cell('NECESSIDADES DE PESSOAL', ntStyle));
+    for(let d=1; d<=days+1; d++) needsTitleRow.push(cell('', ntStyle));
+    aoa.push(needsTitleRow);
+    merges.push({s:{r:aoa.length-1,c:0}, e:{r:aoa.length-1,c:days+1}});
+
+    // ── Necessidades rows ────────────────────────────────
+    const needsColorMap = {};
+    for(const nr of NEEDS_ROWS) {
+      const fg  = '000000';
+      const nrw = [];
+      nrw.push(cell(nr.label.trim(), baseStyle(BG_NEEDS, fg, {bold:true, h:'left'})));
+      for(let d=1; d<=days; d++) {
+        const v = needsData?.[nr.key]?.[d];
+        nrw.push(cell(v!=null && v!=='' ? Number(v) : '', baseStyle(BG_NEEDS, FG_BODY, {bold:true})));
+      }
+      nrw.push(cell('', baseStyle(BG_NEEDS, FG_MUTED)));
+      aoa.push(nrw);
+    }
+
+    // ════════════════════════════════════════════════════
+    //  Build workbook with xlsx-js-style
+    // ════════════════════════════════════════════════════
+    const wb = XLSX.utils.book_new();
+
+    // Convert aoa (array of cell objects) to worksheet
+    const ws = XLSX.utils.aoa_to_sheet(aoa.map(r => r.map(c => c && c.v !== undefined ? c.v : (c||''))));
+
+    // Apply styles cell by cell
+    aoa.forEach((row, ri) => {
+      row.forEach((cellObj, ci) => {
+        if(!cellObj || !cellObj.s) return;
+        const addr = XLSX.utils.encode_cell({r:ri, c:ci});
+        if(!ws[addr]) ws[addr] = {};
+        ws[addr].s = cellObj.s;
+      });
+    });
+
+    // Merges
+    ws['!merges'] = merges;
+
+    // Column widths
+    const wscols = [{wch:22}];
+    for(let d=0; d<days; d++) wscols.push({wch:5});
+    wscols.push({wch:7});
+    ws['!cols'] = wscols;
+
+    // Row heights
+    const wsrows = [{hpt:28}, {hpt:18}, {hpt:14}];
+    for(let ni=0; ni<nurseList.length; ni++) wsrows.push({hpt:18});
+    wsrows.push({hpt:14}); // totals
+    wsrows.push({hpt:6});  // blank
+    wsrows.push({hpt:20}); // needs title
+    NEEDS_ROWS.forEach(()=>wsrows.push({hpt:18}));
+    ws['!rows'] = wsrows;
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Horário');
+
+    // ── Sheet 2: Legenda ─────────────────────────────────
+    const legAoa = [];
+    // title
+    const legTitleStyle = baseStyle(BG_HEADER, FG_ACCENT, {bold:true, sz:12, h:'center'});
+    legAoa.push([
+      cell('LEGENDA DE TURNOS — Nephrocare Funchal', legTitleStyle),
+      cell('',legTitleStyle), cell('',legTitleStyle), cell('',legTitleStyle)
+    ]);
+    // headers
+    const lhStyle = baseStyle(BG_SUBHDR, FG_MUTED, {bold:true, sz:9});
+    legAoa.push(['Sigla','Significado','Horas','Cor'].map(h=>cell(h,lhStyle)));
+    // shifts
+    SHIFTS.forEach((s,si) => {
+      const alt = 'FFFFFF';
+      const bg6 = hex6(s.color);
+      legAoa.push([
+        cell(s.key,   baseStyle('FFFFFF', '000000', {bold:true, sz:10})),
+        cell(s.label, baseStyle('FFFFFF', '000000',  {h:'left'})),
+        cell(s.hours>0 ? s.hours+'h':'—', baseStyle('FFFFFF', '000000')),
+        cell(s.color, baseStyle('FFFFFF', '000000',  {sz:9}))
+      ]);
+    });
+
+    const wsLeg = XLSX.utils.aoa_to_sheet(legAoa.map(r=>r.map(c=>c&&c.v!==undefined?c.v:'')));
+    legAoa.forEach((row,ri)=>row.forEach((cellObj,ci)=>{
+      if(!cellObj||!cellObj.s) return;
+      const addr=XLSX.utils.encode_cell({r:ri,c:ci});
+      if(!wsLeg[addr]) wsLeg[addr]={};
+      wsLeg[addr].s=cellObj.s;
+    }));
+    wsLeg['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}}];
+    wsLeg['!cols']   = [{wch:10},{wch:28},{wch:10},{wch:16}];
+    wsLeg['!rows']   = [{hpt:24},{hpt:16},...SHIFTS.map(()=>({hpt:17}))];
+    XLSX.utils.book_append_sheet(wb, wsLeg, 'Legenda de Turnos');
+
+    // ── Download ─────────────────────────────────────────
+    XLSX.writeFile(wb, `horario_nephrocare_${curYear}_${String(curMonth+1).padStart(2,'0')}.xlsx`);
+
+  } catch(err) {
+    alert('Erro ao exportar: ' + err.message);
+    console.error(err);
+  }
+}
+;
+
+// ── Firebase Init: carrega todos os dados, depois arranca a app ───────────────
+(async function initApp() {
+  const loadMsg = document.getElementById('fbLoadMsg');
+  const loadBar = document.getElementById('fbLoadBar');
+
+  function setProgress(pct, msg) {
+    loadBar.style.width = pct + '%';
+    if (msg) loadMsg.textContent = msg;
+  }
+
+  try {
+    setProgress(20, 'A carregar dados…');
+    // Carrega toda a árvore de uma só vez
+    const snapshot = await db.ref(FB_ROOT).once('value');
+    const data = snapshot.val() || {};
+
+    // Popula o cache local
+    Object.entries(data).forEach(([k, v]) => { fbCache[k] = v; });
+    setProgress(70, 'A preparar horário…');
+
+    // Inicializa variáveis de estado com dados da Firebase
+    SHIFTS       = loadJSON(SHIFTS_KEY) || DEFAULT_SHIFTS.map(s=>({...s}));
+    nurseList    = loadNurses();
+    scheduleData = loadSchedule(curYear, curMonth);
+    needsData    = loadNeeds(curYear, curMonth);
+    swapList     = loadJSON(SWAPS_KEY) || [];
+    swapCtr      = parseInt(fbGet(SWAP_CTR)||'0');
+    nurseCounter = parseInt(fbGet(COUNTER_KEY)||'0');
+    nurseCounterM = parseInt(fbGet(COUNTER_KEY_M)||'0');
+    dispoData    = loadDispo(dispoCurYear, dispoCurMonth);
+    nurseListM    = loadNursesM();
+    scheduleDataM = loadScheduleM(curYearM, curMonthM);
+    needsDataM    = loadNeedsM(curYearM, curMonthM);
+
+    setProgress(90, 'Quase pronto…');
+
+    // Listener em tempo real: quando outro utilizador altera dados, re-sincroniza
+    db.ref(FB_ROOT).on('value', snap => {
+      const fresh = snap.val() || {};
+      Object.keys(fbCache).forEach(k => { if (!(k in fresh)) delete fbCache[k]; });
+      Object.entries(fresh).forEach(([k, v]) => { fbCache[k] = v; });
+
+      // Atualiza state local silenciosamente
+      SHIFTS       = loadJSON(SHIFTS_KEY) || DEFAULT_SHIFTS.map(s=>({...s}));
+      nurseList    = loadNurses();
+      scheduleData = loadSchedule(curYear, curMonth);
+      needsData    = loadNeeds(curYear, curMonth);
+      swapList     = loadJSON(SWAPS_KEY) || [];
+      swapCtr      = parseInt(fbGet(SWAP_CTR)||'0');
+      nurseCounter = parseInt(fbGet(COUNTER_KEY)||'0');
+      nurseListM    = loadNursesM();
+      scheduleDataM = loadScheduleM(curYearM, curMonthM);
+      needsDataM    = loadNeedsM(curYearM, curMonthM);
+
+      // Re-renderiza a vista atual
+      const activeView = VIEWS.find(v => !document.getElementById(v).classList.contains('view-hidden'));
+      if (activeView === 'view-schedule') { renderTable(); renderNeeds(); }
+      if (activeView === 'view-schedule-machico') { renderTableM(); renderNeedsM(); }
+      if (activeView === 'view-swaps')    { renderSwapList(); updatePendingBadge(); }
+      if (activeView === 'view-config')   { renderConfigTable(); }
+      if (activeView === 'view-hours')    { renderHoursPage(); }
+      renderLegend();
+      updatePendingBadge();
+    });
+
+    // Apply saved theme
+    const savedTheme = fbGet(THEME_KEY);
+    if (savedTheme) applyTheme(savedTheme);
+    else {
+      // fallback: check localStorage
+      const ls = localStorage.getItem('nc_theme_local');
+      if (ls) applyTheme(ls);
+    }
+
+    setProgress(100, 'Pronto!');
+    await new Promise(r => setTimeout(r, 400)); // breve pausa para mostrar 100%
+    document.getElementById('fbLoadingOverlay').style.display = 'none';
+
+    // ── Arranque normal da app ────────────────────────────────
+    renderLegend();
+    updateMonthDisplay();
+    updateScheduleLockBtn();
+    updatePendingBadge();
+
+  } catch(err) {
+    loadMsg.textContent = '❌ Erro ao ligar: ' + err.message;
+    loadBar.style.background = '#ff4d4d';
+    console.error('Firebase init error:', err);
+  }
+})();
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const VIEWS = ['view-home','view-schedule','view-schedule-machico','view-swaps','view-config','view-hours','view-disponibilidades'];
+function navigate(name){
+  VIEWS.forEach(v => document.getElementById(v).classList.toggle('view-hidden', v !== 'view-'+name));
+  if(name==='schedule'){ renderTable(); renderNeeds(); setTimeout(()=>enableTablePaste('scheduleTable'),200); }
+  if(name==='schedule-machico'){ renderTableM(); renderNeedsM(); renderLegendM(); updateMonthDisplayM(); setTimeout(()=>enableTablePaste('scheduleTableM'),200); }
+  if(name==='swaps'){ renderSwapForm(); renderSwapList(); }
+  if(name==='config'){ renderConfigTable(); }
+  if(name==='hours'){ renderHoursPage(); }
+  if(name==='disponibilidades'){
+    const fi = document.getElementById('dispoFilterInput');
+    if(fi) fi.value = '';
+    renderDispoTable();
+    filterDispoTable('');
+  }
+}
+
+// ── Swap storage ──────────────────────────────────────────────────────────────
+const SWAPS_KEY = 'nc_swaps';
+const SWAP_CTR  = 'nc_swap_ctr';
+let swapList = loadJSON(SWAPS_KEY) || [];
+let swapCtr  = parseInt(fbGet(SWAP_CTR)||'0');
+function saveSwapList(){ fbSet(SWAPS_KEY, JSON.stringify(swapList)); }
+let activeSwapTab = 'pending';
+
+// ── Render swap form ──────────────────────────────────────────────────────────
+
+function renderSwapForm(){
+  const fromSel = document.getElementById('swapFromNurse');
+  const toSel   = document.getElementById('swapToNurse');
+  const nurses  = loadNurses();
+  [fromSel, toSel].forEach(sel => {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— Selecionar —</option>' +
+      nurses.map(n=>`<option value="${n.id}">${n.name}</option>`).join('');
+    if(prev) sel.value = prev;
+  });
+
+  ['swapShiftFrom','swapShiftTo'].forEach(id => {
+    const sel = document.getElementById(id);
+    if(sel) rebuildSwapShiftSelect(sel);
+  });
+
+  const dateInp = document.getElementById('swapDate');
+  if(!dateInp.value){
+    const t = new Date(); const pad = n=>String(n).padStart(2,'0');
+    dateInp.value = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;
+  }
+
+  document.getElementById('swapFromNurse').onchange = refreshShiftField;
+  document.getElementById('swapDate').onchange      = refreshShiftField;
+  refreshShiftField();
+}
+
+function refreshShiftField(){
+  const fromId  = document.getElementById('swapFromNurse').value;
+  const dateVal = document.getElementById('swapDate').value;
+  const curInp  = document.getElementById('swapCurrentShift');
+  if(!curInp) return;
+  if(!fromId || !dateVal){ curInp.value = ''; return; }
+  const [y,m,d] = dateVal.split('-').map(Number);
+  const clinica = document.getElementById('swapClinica')?.value || 'funchal';
+  const sched   = clinica === 'machico' ? loadScheduleM(y, m-1) : loadSchedule(y, m-1);
+  const existing = (sched?.[fromId]||{})[d] || '';
+  const sh = existing ? shiftByKey(existing) : null;
+  curInp.value = sh ? `${existing} — ${sh.label}` : (existing || '—');
+}
+
+function submitSwapRequest(){
+  const fromId    = document.getElementById('swapFromNurse').value;
+  const toId      = document.getElementById('swapToNurse').value;
+  const dateVal   = document.getElementById('swapDate').value;
+  const shiftFrom = document.getElementById('swapShiftFrom').value;
+  const shiftTo   = document.getElementById('swapShiftTo').value;
+  const clinica   = document.getElementById('swapClinica')?.value || 'funchal';
+
+  if(!fromId || !toId || !dateVal || !shiftFrom || !shiftTo){
+    alert('Preencha todos os campos.'); return;
+  }
+  if(fromId === toId){ alert('Os dois enfermeiros têm de ser diferentes.'); return; }
+
+  const [y,m,d] = dateVal.split('-').map(Number);
+  const month0  = m - 1;
+
+  swapCtr++;
+  fbSet(SWAP_CTR, swapCtr);
+  const req = {
+    id: 'sw'+swapCtr,
+    fromNurse: fromId, toNurse: toId,
+    year: y, month: month0, day: d,
+    shiftFrom, shiftTo,
+    shift: shiftFrom,
+    clinica,
+    status: 'pending',
+    createdAt: new Date().toLocaleString('pt-PT')
+  };
+  swapList.push(req);
+  saveSwapList();
+
+  document.getElementById('swapFromNurse').value   = '';
+  document.getElementById('swapToNurse').value     = '';
+  document.getElementById('swapShiftFrom').value   = '';
+  document.getElementById('swapShiftTo').value     = '';
+  document.getElementById('swapCurrentShift').value = '';
+  activeSwapTab = 'pending';
+  renderSwapList();
+  alert('Pedido de troca submetido com sucesso!');
+}
+
+function nurseName(id){ return (loadNurses().find(n=>n.id===id)||{}).name || id; }
+
+function approveSwap(swId){
+  requirePassword('Aprovar Troca', 'Introduza a password para aprovar esta troca de turno.', () => {
+    _doApproveSwap(swId);
+  });
+}
+
+function _doApproveSwap(swId){
+  const req = swapList.find(s=>s.id===swId); if(!req) return;
+  const { fromNurse, toNurse, year, month, day, shiftFrom, shiftTo, clinica } = req;
+  const isMachico = clinica === 'machico';
+
+  // ── Atualizar status PRIMEIRO antes de qualquer write Firebase ──
+  const approveIdx = swapList.findIndex(s=>s.id===swId);
+  if(approveIdx > -1) swapList[approveIdx].status = 'approved';
+  activeSwapTab = 'approved';
+  saveSwapList();
+
+  // ── Aplicar turnos no horário ──
+  const sched = isMachico ? loadScheduleM(year, month) : loadSchedule(year, month);
+
+  if(!sched[fromNurse]) sched[fromNurse] = {};
+  if(shiftFrom && shiftFrom !== '__EMPTY__') sched[fromNurse][day] = shiftFrom;
+  else delete sched[fromNurse][day];
+
+  if(!sched[toNurse]) sched[toNurse] = {};
+  if(shiftTo && shiftTo !== '__EMPTY__') sched[toNurse][day] = shiftTo;
+  else delete sched[toNurse][day];
+
+  if(isMachico) saveScheduleM(year, month, sched);
+  else saveSchedule(year, month, sched);
+
+  const needs  = isMachico ? loadNeedsM(year, month) : loadNeeds(year, month);
+  const nurses = isMachico ? loadNursesM() : loadNurses();
+  const totals = { M:0, T:0, N:0 };
+  for(const n of nurses){
+    const sk = (sched[n.id]||{})[day];
+    const p  = sk ? SHIFTPERIODS[sk] : null;
+    if(p){ totals.M+=p.M; totals.T+=p.T; totals.N+=p.N; }
+  }
+  for(const p of ['M','T','N']){
+    if(!needs[p]) needs[p]={};
+    if(totals[p]>0) needs[p][day]=totals[p]; else delete needs[p][day];
+  }
+  if(isMachico) saveNeedsM(year, month, needs);
+  else saveNeeds(year, month, needs);
+
+  if(!isMachico && year===curYear && month===curMonth){
+    scheduleData = sched; needsData = needs;
+    renderTable(); renderNeeds();
+  }
+  if(isMachico && year===curYearM && month===curMonthM){
+    scheduleDataM = sched; needsDataM = needs;
+    renderTableM(); renderNeedsM();
+  }
+
+  renderSwapList();
+  alert(`✅ Troca aprovada! Horário de ${nurseName(fromNurse)} e ${nurseName(toNurse)} atualizado.`);
+}
+
+
+function rejectSwap(swId){
+  requirePassword('Rejeitar Troca', 'Introduza a password para rejeitar esta troca de turno.', () => {
+    _doRejectSwap(swId);
+  });
+}
+function _doRejectSwap(swId){
+  const req = swapList.find(s=>s.id===swId); if(!req) return;
+  if(!confirm('Rejeitar este pedido de troca? Nenhuma alteração de horário será feita.')) return;
+  const rejectIdx = swapList.findIndex(s=>s.id===swId);
+  if(rejectIdx > -1) swapList[rejectIdx].status = 'rejected';
+  activeSwapTab = 'rejected';
+  saveSwapList();
+  renderSwapList();
+  alert('❌ Troca rejeitada. Horário não foi alterado.');
+}
+
+function deleteSwap(swId){
+  swapList = swapList.filter(s=>s.id!==swId);
+  saveSwapList();
+  renderSwapList();
+}
+
+
+function renderSwapList(){
+  // tabs
+  document.querySelectorAll('.swap-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab === activeSwapTab);
+  });
+  const filtered = swapList.filter(s=>s.status===activeSwapTab).reverse();
+  const container = document.getElementById('swapListContainer');
+  if(!filtered.length){ container.innerHTML='<div class="swap-empty">Nenhum pedido ' + (activeSwapTab==='pending'?'pendente':activeSwapTab==='approved'?'aprovado':'rejeitado') + '.</div>'; return; }
+
+  const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  container.innerHTML = filtered.map(req=>{
+    const s    = shiftByKey(req.shift);
+    const pill = s ? `<span class="swap-shift-pill" style="background:${s.color}">${s.short}</span>` : `<b>${req.shift}</b>`;
+    const dateStr = `${String(req.day).padStart(2,'0')} ${MONTHS_SHORT[req.month]} ${req.year}`;
+    const badge = req.status==='pending'  ? '<span class="swap-badge badge-pending">⏳ Pendente</span>'
+                : req.status==='approved' ? '<span class="swap-badge badge-approved">✅ Aprovado</span>'
+                :                           '<span class="swap-badge badge-rejected">❌ Rejeitado</span>';
+    const actions = req.status==='pending'
+      ? `<div class="swap-item-actions">
+           <button class="btn-approve" onclick="approveSwap('${req.id}')">✅ Aprovar</button>
+           <button class="btn-reject"  onclick="rejectSwap('${req.id}')">❌ Rejeitar</button>
+         </div>`
+      : `<div class="swap-item-actions">
+           <button class="btn-reject" style="flex:0;padding:5px 14px" onclick="deleteSwap('${req.id}')">🗑 Remover</button>
+         </div>`;
+    return `<div class="swap-item">
+      <div class="swap-item-header">
+        <span class="swap-item-id">#${req.id} · ${req.createdAt}</span>${badge}
+      </div>
+      <div class="swap-item-body">
+        <span>De:</span> <b>${nurseName(req.fromNurse)}</b> → turno fica: <b>${(req.shiftFrom||req.shift)==='__EMPTY__'?'(vazio)':(req.shiftFrom||req.shift)}</b>${(()=>{const sf=shiftByKey(req.shiftFrom||req.shift);return sf&&sf.key!=='__EMPTY__'?' ('+sf.label+')':''})()}<br>
+        <span>Para:</span> <b>${nurseName(req.toNurse)}</b> → turno fica: <b>${req.shiftTo==='__EMPTY__'?'(vazio)':(req.shiftTo||'—')}</b>${(()=>{const st=shiftByKey(req.shiftTo);return st&&st.key!=='__EMPTY__'?' ('+st.label+')':''})()}<br>
+        <span>Data:</span> <b>${dateStr}</b><br>
+        <span>Clínica:</span> <b>${req.clinica==='machico'?'🏥 Nephrocare Machico':'🏥 Nephrocare Funchal'}</b>
+      </div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+function setSwapTab(tab){ activeSwapTab=tab; renderSwapList(); }
+
+// ── Update pending badge on home ───────────────────────────────────────────────
+function updatePendingBadge(){
+  const n = (loadJSON(SWAPS_KEY)||[]).filter(s=>s.status==='pending').length;
+  const b = document.getElementById('pendingBadge');
+  if(b){ b.style.display = n>0 ? 'inline-block' : 'none'; b.textContent = '● '+n+' pendente'+(n!==1?'s':''); }
+}
+
+// Patch navigate to always refresh badge
+const _nav = navigate;
+navigate = function(name){ _nav(name); updatePendingBadge(); };
+
+// ── Patch Init ────────────────────────────────────────────────────────────────
+
+// ── Disponibilidades ──────────────────────────────────────────────────────────
+let dispoCurYear  = new Date().getFullYear();
+let dispoCurMonth = new Date().getMonth();
+
+const dispoKey  = (y,m) => `nc_dispo_${y}_${String(m).padStart(2,'0')}`;
+const loadDispo = (y,m) => loadJSON(dispoKey(y,m)) || {};
+const saveDispo = (y,m,d) => fbSet(dispoKey(y,m), JSON.stringify(d));
+
+let dispoData = {}; // preenchido pelo initApp
+
+function updateDispoMonthDisplay(){
+  const el = document.getElementById('dispoMonthDisplay');
+  if(el) el.textContent = MONTHS_PT[dispoCurMonth] + ' ' + dispoCurYear;
+}
+
+function renderDispoTable(){
+  updateDispoMonthDisplay();
+  const days   = daysInMonth(dispoCurYear, dispoCurMonth);
+  const nurses = loadNurses();
+  const today  = new Date();
+  const isCM   = today.getFullYear()===dispoCurYear && today.getMonth()===dispoCurMonth;
+
+  // Header
+  let hdr = `<tr class="row-days"><th class="col-name">Enfermeiro(a)<span class="nurse-count">(${nurses.length})</span></th>`;
+  for(let d=1;d<=days;d++){
+    const isT=isCM&&d===today.getDate();
+    hdr += `<th class="${isT?'today-col':''}">${String(d).padStart(2,'0')}</th>`;
+  }
+  hdr += '</tr>';
+  hdr += '<tr class="row-weekday"><th class="col-name"></th>';
+  for(let d=1;d<=days;d++){
+    hdr += `<th class="${dayHeadClass(d)}">${WEEKDAYS_PT[new Date(dispoCurYear,dispoCurMonth,d).getDay()]}</th>`;
+  }
+  hdr += '</tr>';
+  document.getElementById('dispoTableHead').innerHTML = hdr;
+
+  const body = document.getElementById('dispoTableBody');
+  if(!nurses.length){
+    body.innerHTML=`<tr><td colspan="${days+1}" class="empty-msg">Nenhum enfermeiro adicionado. Adicione em "Consultar Horário".</td></tr>`;
+    return;
+  }
+
+  let b = '';
+  for(const nurse of nurses){
+    b += `<tr class="nurse-row" draggable="true" data-nurse="${nurse.id}" data-name="${nurse.name.toLowerCase()}">`;
+    b += `<td class="col-name"><span class="drag-handle" title="Arrastar para reordenar">⠿</span><span title="${nurse.name}">${nurse.name}</span></td>`;
+    for(let d=1;d<=days;d++){
+      const val = ((dispoData[nurse.id]||{})[d])||'';
+      b += `<td class="${dayColClass(d)} dispo-cell">`;
+      b += `<input type="text" class="dispo-cell-input" maxlength="3"
+               value="${val.replace(/"/g,'&quot;')}"
+               data-nurse="${nurse.id}" data-day="${d}"
+               title="${nurse.name} \u2014 dia ${d}"
+               oninput="saveDispoCell(this)"
+               onclick="this.select()">`;
+      b += `</td>`;
+    }
+    b += '</tr>';
+  }
+  body.innerHTML = b;
+  // Re-apply filter if active
+  const _fi = document.getElementById('dispoFilterInput');
+  if (_fi && _fi.value) filterDispoTable(_fi.value);
+}
+
+function saveDispoCell(inp){
+  const nid = inp.dataset.nurse;
+  const day = parseInt(inp.dataset.day);
+  const val = inp.value.toUpperCase();
+  inp.value = val;
+  if(!dispoData[nid]) dispoData[nid]={};
+  if(val) dispoData[nid][day]=val;
+  else    delete dispoData[nid][day];
+  saveDispo(dispoCurYear,dispoCurMonth,dispoData);
+}
+// ── Filtro por nome nas Disponibilidades ──────────────────────────────────────
+function filterDispoTable(query) {
+  const q = query.trim().toLowerCase();
+  const rows = document.querySelectorAll('#dispoTableBody tr[data-name]');
+  rows.forEach(row => {
+    const name = row.getAttribute('data-name') || '';
+    row.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
+}
+
+
+function dispoChangeMonth(delta){
+  dispoCurMonth += delta;
+  if(dispoCurMonth>11){ dispoCurMonth=0; dispoCurYear++; }
+  if(dispoCurMonth<0 ){ dispoCurMonth=11; dispoCurYear--; }
+  dispoData = loadDispo(dispoCurYear,dispoCurMonth);
+  renderDispoTable();
+}
+
+function dispoExportCSV(){
+  // mantido por compatibilidade — agora chama exportação Excel
+  dispoExportExcel();
+}
+function dispoExportExcel(){
+  try {
+    const nurses = loadNurses();
+    const days   = daysInMonth(dispoCurYear, dispoCurMonth);
+    const monthLabel = MONTHS_PT[dispoCurMonth] + ' ' + dispoCurYear;
+    const WKDAYS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+    function hex6(h){ return (h||'000000').replace('#','').padStart(6,'0'); }
+    function fgFill(hex){ return { patternType:'solid', fgColor:{rgb:hex6(hex)}, bgColor:{rgb:'000000'} }; }
+    function cell(v,s){ return {v,s}; }
+
+    const BG_HEADER='0B1120', BG_SUBHDR='111827', BG_ALT='141F2E';
+    const FG_ACCENT='00B4D8', FG_BODY='E2EAF4', FG_MUTED='5A7395';
+    const FG_SUN='FF8C8C', FG_SAT='FFD166', BG_SUN='2A1010', BG_SAT='2A2000';
+    const borderThin={top:{style:'thin',color:{rgb:'1E2D45'}},bottom:{style:'thin',color:{rgb:'1E2D45'}},left:{style:'thin',color:{rgb:'1E2D45'}},right:{style:'thin',color:{rgb:'1E2D45'}}};
+
+    function baseStyle(bgHex,fgHex,opts={}){
+      return { fill:fgFill(bgHex), font:{name:'Calibri',sz:opts.sz||10,bold:!!opts.bold,color:{rgb:hex6(fgHex)}}, alignment:{horizontal:opts.h||'center',vertical:'center',wrapText:false}, border:borderThin };
+    }
+
+    const aoa=[], merges=[];
+    // Title row
+    const titleStyle = baseStyle(BG_HEADER,FG_ACCENT,{bold:true,sz:13,h:'center'});
+    const titleRow=[cell(`NEPHROCARE FUNCHAL  —  Disponibilidades  —  ${monthLabel}`,titleStyle)];
+    for(let d=1;d<=days;d++) titleRow.push(cell('',baseStyle(BG_HEADER,FG_ACCENT)));
+    aoa.push(titleRow);
+    merges.push({s:{r:0,c:0},e:{r:0,c:days}});
+
+    // Day numbers row
+    const daysRow=[cell('Enfermeiro/a',baseStyle(BG_SUBHDR,FG_MUTED,{bold:true,h:'left'}))];
+    for(let d=1;d<=days;d++){
+      const dow=new Date(dispoCurYear,dispoCurMonth,d).getDay();
+      const sun=dow===0,sat=dow===6;
+      daysRow.push(cell(d,baseStyle(sun?BG_SUN:sat?BG_SAT:BG_SUBHDR,sun?FG_SUN:sat?FG_SAT:FG_BODY,{bold:true,sz:9})));
+    }
+    aoa.push(daysRow);
+
+    // Weekday names row
+    const wkRow=[cell('',baseStyle(BG_SUBHDR,FG_MUTED))];
+    for(let d=1;d<=days;d++){
+      const dow=new Date(dispoCurYear,dispoCurMonth,d).getDay();
+      const sun=dow===0,sat=dow===6;
+      wkRow.push(cell(WKDAYS[dow],baseStyle(sun?BG_SUN:sat?BG_SAT:BG_SUBHDR,sun?FG_SUN:sat?FG_SAT:FG_MUTED,{sz:7})));
+    }
+    aoa.push(wkRow);
+
+    // Nurse rows
+    for(let ni=0;ni<nurses.length;ni++){
+      const n=nurses[ni];
+      const rowBg=ni%2===1?BG_ALT:'111827';
+      const row=[cell(n.name,baseStyle(rowBg,FG_BODY,{bold:true,h:'left'}))];
+      for(let d=1;d<=days;d++){
+        const dow=new Date(dispoCurYear,dispoCurMonth,d).getDay();
+        const sun=dow===0,sat=dow===6;
+        const val=(dispoData[n.id]||{})[d]||'';
+        const bg=sun?BG_SUN:sat?BG_SAT:rowBg;
+        row.push(cell(val,baseStyle(bg,val?FG_ACCENT:FG_MUTED,{sz:9,bold:!!val})));
+      }
+      aoa.push(row);
+    }
+
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet(aoa.map(r=>r.map(c=>c&&c.v!==undefined?c.v:(c||''))));
+    aoa.forEach((row,ri)=>row.forEach((cellObj,ci)=>{
+      if(!cellObj||!cellObj.s) return;
+      const addr=XLSX.utils.encode_cell({r:ri,c:ci});
+      if(!ws[addr]) ws[addr]={};
+      ws[addr].s=cellObj.s;
+    }));
+    ws['!merges']=merges;
+    const wscols=[{wch:22}];
+    for(let d=0;d<days;d++) wscols.push({wch:5});
+    ws['!cols']=wscols;
+    ws['!rows']=[{hpt:28},{hpt:18},{hpt:14},...nurses.map(()=>({hpt:18}))];
+    XLSX.utils.book_append_sheet(wb,ws,'Disponibilidades');
+    XLSX.writeFile(wb,`disponibilidades_${dispoCurYear}_${String(dispoCurMonth+1).padStart(2,'0')}.xlsx`);
+  } catch(err){ alert('Erro ao exportar: '+err.message); console.error(err); }
+}
+
+document.getElementById('dispoPrevMonth').addEventListener('click',()=>dispoChangeMonth(-1));
+document.getElementById('dispoNextMonth').addEventListener('click',()=>dispoChangeMonth(+1));
+document.getElementById('dispoExportBtn').addEventListener('click', dispoExportCSV);
+document.getElementById('dispoClearBtn').addEventListener('click', () => {
+  requirePassword('Limpar Disponibilidades', 'Introduza a password para limpar as disponibilidades.', () => {
+    if(!confirm(`Limpar todas as disponibilidades de ${MONTHS_PT[dispoCurMonth]} ${dispoCurYear}?`)) return;
+    dispoData = {};
+    saveDispo(dispoCurYear, dispoCurMonth, dispoData);
+    renderDispoTable();
+  });
+});
+
+navigate('home');
+updatePendingBadge();
+
+// ── Config page ────────────────────────────────────────────────────────────────
+const _shiftEdits = {};
+
+function renderConfigTable(){
+  const CORE = ['M','T','N','MT','TN','MTN','MP','NP','F','FL','D'];
+  document.getElementById('configTableBody').innerHTML = SHIFTS.map((s,i) => `
+    <tr id="cfgRow${i}">
+      <td><input type="color" id="cfgColor${i}" class="cfg-input cfg-input-color" value="${s.color}"
+            oninput="document.getElementById('cfgPill${i}').style.background=this.value"></td>
+      <td style="display:flex;align-items:center;gap:8px">
+        <span class="config-pill" id="cfgPill${i}" style="background:${s.color}">${s.short}</span>
+        <input type="text" id="cfgKey${i}" class="cfg-input cfg-input-key" value="${s.key}" maxlength="6"
+          oninput="this.value=this.value.toUpperCase();document.getElementById('cfgPill${i}').textContent=this.value">
+      </td>
+      <td><input type="text" id="cfgLabel${i}" class="cfg-input cfg-input-label" value="${s.label}" maxlength="30"></td>
+      <td><div class="cfg-hours-wrap">
+        <input type="number" id="cfgHours${i}" class="cfg-input cfg-input-hours" value="${s.hours||0}" min="0" max="24">h
+      </div></td>
+      <td><button class="btn-cfg-save" onclick="saveShiftRow(${i})">💾 Guardar</button></td>
+      <td>${!CORE.includes(s.key)
+            ? `<button class="btn-cfg-del" onclick="deleteShiftRow(${i})">🗑</button>`
+            : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+    </tr>`).join('');
+}
+
+function saveShiftRow(idx){
+  const key   = (document.getElementById('cfgKey'+idx).value   || '').trim().toUpperCase();
+  const label = (document.getElementById('cfgLabel'+idx).value || '').trim();
+  const hours = parseInt(document.getElementById('cfgHours'+idx).value) || 0;
+  const color = document.getElementById('cfgColor'+idx).value;
+  if(!key || !label){ alert('Sigla e significado não podem estar vazios.'); return; }
+  const duplicate = SHIFTS.findIndex(s=>s.key===key);
+  if(duplicate !== -1 && duplicate !== idx){ alert(`A sigla "${key}" já existe noutro turno.`); return; }
+  SHIFTS[idx] = { ...SHIFTS[idx], key, label, hours, color, short:key };
+  saveShifts();
+  renderLegend();
+  renderConfigTable();
+  const sel = document.getElementById('swapShift');
+  if(sel) rebuildSwapShiftSelect(sel);
+  // Visual feedback
+  const btn = document.querySelector(`#cfgRow${idx} .btn-cfg-save`);
+  if(btn){ btn.textContent='✅ Guardado'; setTimeout(()=>{ if(btn) btn.textContent='💾 Guardar'; },1500); }
+}
+
+function deleteShiftRow(idx){
+  if(!confirm(`Eliminar "${SHIFTS[idx].key} — ${SHIFTS[idx].label}"?\nOs turnos já atribuídos no horário não serão alterados.`)) return;
+  SHIFTS.splice(idx,1);
+  saveShifts(); renderLegend(); renderConfigTable();
+}
+
+function addNewShift(){
+  const key   = document.getElementById('newKey').value.trim().toUpperCase();
+  const label = document.getElementById('newLabel').value.trim();
+  const hours = parseInt(document.getElementById('newHours').value)||0;
+  const color = document.getElementById('newColor').value;
+  if(!key||!label){ alert('Preencha a sigla e o significado.'); return; }
+  if(SHIFTS.find(s=>s.key===key)){ alert(`Já existe um turno com a sigla "${key}".`); return; }
+  SHIFTS.push({key, label, color, short:key, hours});
+  saveShifts(); renderLegend(); renderConfigTable();
+  document.getElementById('newKey').value='';
+  document.getElementById('newLabel').value='';
+  document.getElementById('newHours').value='8';
+  document.getElementById('newColor').value='#0077b6';
+}
+
+function rebuildSwapShiftSelect(sel){
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Selecionar —</option>' +
+    '<option value="__EMPTY__">⬜ Sem Turno (célula vazia)</option>' +
+    SHIFTS.map(s=>`<option value="${s.key}">${s.key} — ${s.label}</option>`).join('');
+  if(prev) sel.value = prev;
+}
+
+
+// ── Hours page ─────────────────────────────────────────────────────────────────
+const HOURS_TARGET_KEY = 'nc_weekly_target';
+let hoursYear  = new Date().getFullYear();
+let hoursMonth = new Date().getMonth();
+
+function loadHoursTarget(){
+  const v = parseInt(fbGet(HOURS_TARGET_KEY));
+  return (!isNaN(v) && v > 0) ? v : 35;
+}
+function saveHoursTarget(){
+  const inp = document.getElementById('hoursTargetInput');
+  const v = parseInt(inp ? inp.value : 35);
+  if(!isNaN(v) && v > 0) fbSet(HOURS_TARGET_KEY, v);
+}
+
+function hoursChangeMonth(delta){
+  hoursMonth += delta;
+  if(hoursMonth < 0)  { hoursMonth = 11; hoursYear--; }
+  if(hoursMonth > 11) { hoursMonth = 0;  hoursYear++; }
+  renderHoursPage();
+}
+
+function getWeeksOfMonth(y, m){
+  // Returns array of week objects: { label, days:[] }
+  // A week starts on Monday (ISO). We group days of the month by ISO week.
+  const total = daysInMonth(y, m);
+  const weeks = [];
+  let currentWeek = null;
+
+  for(let d = 1; d <= total; d++){
+    const date = new Date(y, m, d);
+    const dow  = date.getDay(); // 0=Sun,1=Mon,...,6=Sat
+    const isMonday = dow === 1;
+
+    if(!currentWeek || isMonday){
+      if(currentWeek) weeks.push(currentWeek);
+      // Get ISO week number
+      const jan4 = new Date(date.getFullYear(), 0, 4);
+      const startOfWeek1 = new Date(jan4);
+      startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay()||7) - 1));
+      const weekNum = Math.round((date - startOfWeek1) / (7*24*3600*1000)) + 1;
+      currentWeek = { label: 'Sem. ' + weekNum, days: [], isoWeek: weekNum };
+    }
+    currentWeek.days.push(d);
+  }
+  if(currentWeek && currentWeek.days.length) weeks.push(currentWeek);
+  return weeks;
+}
+
+function pillClass(hrs, target){
+  if(hrs <= 0) return 'zero';
+  if(hrs > target + 1)  return 'over-target';
+  if(hrs < target - 1)  return 'under-target';
+  return 'at-target';
+}
+
+function renderHoursPage(){
+  // Sync target input
+  const target = loadHoursTarget();
+  const inp = document.getElementById('hoursTargetInput');
+  if(inp && inp.value != target) inp.value = target;
+
+  // Month display
+  const disp = document.getElementById('hoursMonthDisplay');
+  if(disp) disp.textContent = MONTHS_PT[hoursMonth] + ' ' + hoursYear;
+
+  // Use same nurse list filtered by config selection
+  const _allNurses = loadJSON(NURSES_KEY) || [];
+  const _selIds = loadHoursNurses ? loadHoursNurses() : null;
+  const nurses = _selIds ? _allNurses.filter(n => _selIds.includes(n.id)) : _allNurses;
+  const sched  = loadSchedule(hoursYear, hoursMonth);
+  const weeks  = getWeeksOfMonth(hoursYear, hoursMonth);
+
+  const thead = document.getElementById('hoursHead');
+  const tbody = document.getElementById('hoursBody');
+  if(!thead || !tbody) return;
+
+  if(!nurses.length){
+    thead.innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="2" class="hours-empty">Nenhum enfermeiro configurado para esta vista. Selecione enfermeiros em Configuração.</td></tr>';
+    const sr=document.getElementById('hoursSummaryRow'); if(sr) sr.style.display='none';
+    return;
+  }
+
+  // ── Compute hours per nurse per week (Funchal + Machico) ────────────────
+  const schedM_hours = loadScheduleM(hoursYear, hoursMonth);
+  const nursesM_hours = loadNursesM();
+
+  // Previous month for week-1 carry-over
+  const prevMonthDate = new Date(hoursYear, hoursMonth - 1, 1);
+  const prevYear  = prevMonthDate.getFullYear();
+  const prevMonth = prevMonthDate.getMonth();
+  const schedPrevF = loadSchedule(prevYear, prevMonth);
+  const schedPrevM = loadScheduleM(prevYear, prevMonth);
+
+  // Days of previous month that belong to the same ISO week as week[0] of current month
+  function isoWeekNum(date){
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+  const week1ISONum = weeks.length ? isoWeekNum(new Date(hoursYear, hoursMonth, weeks[0].days[0])) : -1;
+  const prevMonthDays = daysInMonth(prevYear, prevMonth);
+  const prevCarryDays = []; // {day, year, month} of prev month days in same ISO week
+  for(let d = prevMonthDays; d >= 1; d--){
+    const date = new Date(prevYear, prevMonth, d);
+    if(isoWeekNum(date) === week1ISONum) prevCarryDays.push(d);
+    else break; // days are contiguous at end of prev month
+  }
+
+  const nurseWeekHours = nurses.map(nurse => {
+    // Find matching Machico nurse by name
+    const nurseM = nursesM_hours.find(nm => nm.name === nurse.name);
+
+    function shiftHours(sk){ const sh = SHIFTS.find(s => s.key === sk); return sh ? (parseFloat(sh.hours) || 0) : 0; }
+
+    const weekHours = weeks.map((w, wi) => {
+      let total = 0;
+
+      // For week 1: add hours from last week of previous month
+      if(wi === 0 && prevCarryDays.length){
+        prevCarryDays.forEach(d => {
+          const skF = (schedPrevF[nurse.id] || {})[d];
+          if(skF) total += shiftHours(skF);
+          if(nurseM){
+            const skM = (schedPrevM[nurseM.id] || {})[d];
+            if(skM) total += shiftHours(skM);
+          }
+        });
+      }
+
+      w.days.forEach(d => {
+        // Funchal hours
+        const skF = (sched[nurse.id] || {})[d];
+        if(skF) total += shiftHours(skF);
+        // Machico hours
+        if(nurseM){
+          const skM = (schedM_hours[nurseM.id] || {})[d];
+          if(skM) total += shiftHours(skM);
+        }
+      });
+      return total;
+    });
+    const monthTotal = weekHours.reduce((a, b) => a + b, 0);
+    return { nurse, weekHours, monthTotal };
+  });
+
+  // ── Summary cards ────────────────────────────────────────────────────────
+  const totalTeamHours = nurseWeekHours.reduce((a, n) => a + n.monthTotal, 0);
+  const avgMonthHours  = nurses.length ? Math.round(totalTeamHours / nurses.length) : 0;
+  const expectedMonth  = target * weeks.length;
+  const nursesOnTarget = nurseWeekHours.filter(n =>
+    n.weekHours.every((h, wi) => {
+      const weekHasAny = nurseWeekHours.some(nn => nn.weekHours[wi] > 0);
+      if(!weekHasAny) return true;
+      const daysInW   = weeks[wi].days.length;
+      const proTarget = Math.round(target * daysInW / 7);
+      return Math.abs(h - proTarget) <= 1;
+    })
+  ).length;
+
+  document.getElementById('hoursSummaryRow').innerHTML = `
+    <div class="hours-stat-card">
+      <div class="hours-stat-label">Total horas equipa / mês</div>
+      <div class="hours-stat-value">${totalTeamHours}h</div>
+      <div class="hours-stat-sub">${nurses.length} enfermeiro(a)s</div>
+    </div>
+    <div class="hours-stat-card">
+      <div class="hours-stat-label">Média horas / enfermeiro(a)</div>
+      <div class="hours-stat-value">${avgMonthHours}h</div>
+      <div class="hours-stat-sub">objetivo: ~${expectedMonth}h/mês (${target}h×${weeks.length} sem.)</div>
+    </div>
+    <div class="hours-stat-card">
+      <div class="hours-stat-label">Obj. contratual semanal</div>
+      <div class="hours-stat-value">${target}h</div>
+      <div class="hours-stat-sub">${nursesOnTarget} de ${nurses.length} dentro do objetivo</div>
+    </div>`;
+
+  // ── Build header — col 1: Enfermeiro(a), col N: cada semana, col final: Total ──
+  let hdr = '<tr><th class="col-nurse">Enfermeiro(a)</th>';
+  weeks.forEach((w, wi) => {
+    const first = w.days[0];
+    const last  = w.days[w.days.length - 1];
+    const daysInW   = w.days.length;
+    const proTarget = Math.round(target * daysInW / 7);
+    hdr += `<th class="${wi > 0 ? 'week-sep' : ''}">${w.label}<span class="week-header">${first}–${last} ${MONTHS_PT[hoursMonth].slice(0,3)} · obj.${proTarget}h</span></th>`;
+  });
+  hdr += '<th class="col-total">Total Mês</th></tr>';
+  thead.innerHTML = hdr;
+
+  // ── Build body — one row per nurse, name exactly as in "Consultar Horário" ──
+  let rows = '';
+  nurseWeekHours.forEach(({ nurse, weekHours, monthTotal }) => {
+    // Col 1: nome do(a) enfermeiro(a) (mesmo array, mesma ordem do horário)
+    rows += `<tr><td class="col-nurse">${nurse.name}</td>`;
+    weekHours.forEach((hrs, wi) => {
+      const daysInW   = weeks[wi].days.length;
+      const proTarget = Math.round(target * daysInW / 7);
+      const cls = pillClass(hrs, proTarget);
+      const pct = proTarget > 0 ? Math.min(100, Math.round(hrs / proTarget * 100)) : 0;
+      rows += `<td class="${wi > 0 ? 'week-sep' : ''}">
+        <div class="hours-cell-wrap">
+          <span class="hours-pill ${cls}">${hrs > 0 ? hrs + 'h' : '&#8212;'}</span>
+          ${hrs > 0 ? `<div class="hours-bar-track"><div class="hours-bar-fill ${cls}" style="width:${pct}%"></div></div>` : ''}
+        </div>
+      </td>`;
+    });
+    // Coluna total mês
+    const monthTarget = weeks.reduce((a, w) => a + Math.round(target * w.days.length / 7), 0);
+    const totalCls    = pillClass(monthTotal, monthTarget);
+    rows += `<td><span class="hours-total-pill ${totalCls !== 'zero' ? totalCls : ''}">${monthTotal}h</span></td></tr>`;
+  });
+
+  // ── Linha de totais da equipa ────────────────────────────────────────────
+  rows += '<tr style="border-top:2px solid var(--border)"><td class="col-nurse" style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Total equipa</td>';
+  weeks.forEach((w, wi) => {
+    const sum = nurseWeekHours.reduce((a, n) => a + n.weekHours[wi], 0);
+    rows += `<td class="${wi > 0 ? 'week-sep' : ''}"><span class="hours-pill exact">${sum}h</span></td>`;
+  });
+  const grandTotal = nurseWeekHours.reduce((a, n) => a + n.monthTotal, 0);
+  rows += `<td><span class="hours-total-pill">${grandTotal}h</span></td></tr>`;
+
+  tbody.innerHTML = rows;
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  PASSWORD PROTECTION  – password is "1234"
+// ═══════════════════════════════════════════════════════════
+let CORRECT_PASSWORD = '1234';
+
+// Session state (in-memory only, cleared on page reload)
+let scheduleUnlocked = false;
+let configUnlocked   = false;
+
+// Pending action to run after successful auth
+let _pwdCallback = null;
+
+function requirePassword(titleText, descText, onSuccess) {
+  _pwdCallback = onSuccess;
+  document.getElementById('pwdModalTitle').textContent = titleText;
+  document.getElementById('pwdModalDesc').textContent  = descText;
+  document.getElementById('pwdInput').value = '';
+  document.getElementById('pwdErrMsg').textContent = '';
+  document.getElementById('pwdOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('pwdInput').focus(), 80);
+}
+
+function confirmPwd() {
+  const val = document.getElementById('pwdInput').value;
+  if (val === CORRECT_PASSWORD) {
+    document.getElementById('pwdOverlay').classList.add('hidden');
+    document.getElementById('pwdErrMsg').textContent = '';
+    if (_pwdCallback) { _pwdCallback(); _pwdCallback = null; }
+  } else {
+    const inp = document.getElementById('pwdInput');
+    inp.classList.add('error');
+    document.getElementById('pwdErrMsg').textContent = 'Password incorreta. Tente novamente.';
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('error'), 400);
+    inp.focus();
+  }
+}
+
+function cancelPwd() {
+  document.getElementById('pwdOverlay').classList.add('hidden');
+  _pwdCallback = null;
+}
+
+// Close modal on overlay background click
+document.getElementById('pwdOverlay').addEventListener('click', function(e) {
+  if (e.target === this) cancelPwd();
+});
+
+// ─── Schedule lock / unlock ──────────────────────────────────
+function updateScheduleLockBtn() {
+  const btn = document.getElementById('schedLockBtn');
+  if (!btn) return;
+  if (scheduleUnlocked) {
+    btn.innerHTML = '🔓 Desbloqueado';
+    btn.title = 'Clique para bloquear';
+  } else {
+    btn.innerHTML = '🔒 Bloqueado';
+    btn.title = 'Clique para desbloquear e editar';
+  }
+}
+
+function toggleScheduleLock() {
+  if (scheduleUnlocked) {
+    // lock it again
+    scheduleUnlocked = false;
+    updateScheduleLockBtn();
+  } else {
+    requirePassword(
+      'Editar Horário',
+      'Introduza a password para desbloquear a edição do horário mensal.',
+      () => {
+        scheduleUnlocked = true;
+        updateScheduleLockBtn();
+      }
+    );
+  }
+}
+
+// ─── Guard for cell clicks in schedule ───────────────────────
+// Wrap original openPopup so it checks lock first
+const _originalOpenPopup = openPopup;
+openPopup = function(cell, nurseId, day) {
+  if (!scheduleUnlocked) {
+    requirePassword(
+      'Editar Horário',
+      'A edição do horário está bloqueada. Introduza a password para continuar.',
+      () => {
+        scheduleUnlocked = true;
+        updateScheduleLockBtn();
+        _originalOpenPopup(cell, nurseId, day);
+      }
+    );
+    return;
+  }
+  _originalOpenPopup(cell, nurseId, day);
+};
+
+// Guard add nurse
+const _origAddNurse = addNurse;
+addNurse = function() {
+  if (!scheduleUnlocked) {
+    requirePassword('Editar Horário', 'Introduza a password para adicionar enfermeiros.', () => {
+      scheduleUnlocked = true;
+      updateScheduleLockBtn();
+      _origAddNurse();
+    });
+    return;
+  }
+  _origAddNurse();
+};
+
+// Guard remove nurse
+const _origRemoveNurse = removeNurse;
+removeNurse = function(id) {
+  if (!scheduleUnlocked) {
+    requirePassword('Editar Horário', 'Introduza a password para remover enfermeiros.', () => {
+      scheduleUnlocked = true;
+      updateScheduleLockBtn();
+      _origRemoveNurse(id);
+    });
+    return;
+  }
+  _origRemoveNurse(id);
+};
+
+// Guard clear month
+const _origClearMonth = document.getElementById('clearMonthBtn');
+if (_origClearMonth) {
+  const existingListeners = _origClearMonth.cloneNode(true);
+  _origClearMonth.replaceWith(existingListeners);
+  existingListeners.addEventListener('click', function(e) {
+    e.stopImmediatePropagation();
+    if (!scheduleUnlocked) {
+      requirePassword('Editar Horário', 'Introduza a password para limpar o mês.', () => {
+        scheduleUnlocked = true;
+        updateScheduleLockBtn();
+        if (!confirm(`Limpar todos os turnos e necessidades de ${MONTHS_PT[curMonth]} ${curYear}?`)) return;
+        scheduleData = {}; needsData = {};
+        saveSchedule(curYear, curMonth, scheduleData);
+        saveNeeds(curYear, curMonth, needsData);
+        renderTable(); renderNeeds();
+      });
+    } else {
+      if (!confirm(`Limpar todos os turnos e necessidades de ${MONTHS_PT[curMonth]} ${curYear}?`)) return;
+      scheduleData = {}; needsData = {};
+      saveSchedule(curYear, curMonth, scheduleData);
+      saveNeeds(curYear, curMonth, needsData);
+      renderTable(); renderNeeds();
+    }
+  });
+}
+
+// ─── Config page protection ───────────────────────────────────
+// Intercept navigate to 'config'
+const _origNavigate = navigate;
+navigate = function(name) {
+  if (name === 'config' && !configUnlocked) {
+    requirePassword(
+      'Configuração de Turnos',
+      'O menu de configuração está protegido. Introduza a password para aceder.',
+      () => {
+        configUnlocked = true;
+        _origNavigate('config');
+      }
+    );
+    return;
+  }
+  _origNavigate(name);
+  updateScheduleLockBtn();
+};
+
+// Lock config again when leaving
+const _origNavigate2 = navigate;
+// When back button pressed from config, reset configUnlocked
+// (already handled because each visit requires password again if session var reset)
+// We reset configUnlocked on navigate away from config:
+const __nav = navigate;
+navigate = function(name) {
+  if (name !== 'config') configUnlocked = false;
+  __nav(name);
+};
+
+// ─── Change Password (inside Config) ─────────────────────────
+function changePassword() {
+  const cur     = document.getElementById('pwdCurrent').value;
+  const nw      = document.getElementById('pwdNew').value;
+  const confirm = document.getElementById('pwdConfirm').value;
+  const msg     = document.getElementById('pwdChangeMsg');
+
+  // Reset styles
+  ['pwdCurrent','pwdNew','pwdConfirm'].forEach(id => {
+    document.getElementById(id).classList.remove('error','success');
+  });
+
+  if (cur !== CORRECT_PASSWORD) {
+    document.getElementById('pwdCurrent').classList.add('error');
+    msg.textContent = '❌ Password atual incorreta.';
+    msg.className = 'pwd-change-msg fail';
+    return;
+  }
+  if (!nw || nw.length < 4) {
+    document.getElementById('pwdNew').classList.add('error');
+    msg.textContent = '❌ A nova password deve ter pelo menos 4 caracteres.';
+    msg.className = 'pwd-change-msg fail';
+    return;
+  }
+  if (nw !== confirm) {
+    document.getElementById('pwdConfirm').classList.add('error');
+    msg.textContent = '❌ As passwords não coincidem.';
+    msg.className = 'pwd-change-msg fail';
+    return;
+  }
+
+  // All good — update password
+  CORRECT_PASSWORD = nw;
+  msg.textContent = '✅ Password alterada com sucesso!';
+  msg.className = 'pwd-change-msg ok';
+  document.getElementById('pwdCurrent').value = '';
+  document.getElementById('pwdNew').value = '';
+  document.getElementById('pwdConfirm').value = '';
+  ['pwdCurrent','pwdNew','pwdConfirm'].forEach(id => {
+    document.getElementById(id).classList.add('success');
+    setTimeout(() => document.getElementById(id).classList.remove('success'), 1500);
+  });
+  setTimeout(() => { msg.textContent = ''; }, 4000);
+}
+
+
+
+// ═══════════════════════════════════════════════════════════
+//  DRAG & DROP — reordenar linhas de enfermeiros
+// ═══════════════════════════════════════════════════════════
+function initDragSort() {
+  const rows = [...document.querySelectorAll('#tableBody .nurse-row')];
+  let dragSrc = null;
+
+  rows.forEach(row => {
+    row.addEventListener('dragstart', e => {
+      dragSrc = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.dataset.nurse || '');
+    });
+
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (!dragSrc || row === dragSrc) return;
+      document.querySelectorAll('#tableBody .nurse-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || row === dragSrc) return;
+      const fromId = dragSrc.dataset.nurse;
+      const toId   = row.dataset.nurse;
+      const fromIdx = nurseList.findIndex(n => n.id === fromId);
+      const toIdx   = nurseList.findIndex(n => n.id === toId);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const moved = nurseList.splice(fromIdx, 1)[0];
+      nurseList.splice(toIdx, 0, moved);
+      saveNurses(nurseList);
+      scheduleData = loadSchedule(curYear, curMonth);
+      renderTable();
+      renderNeeds();
+    });
+
+    row.addEventListener('dragend', () => {
+      document.querySelectorAll('#tableBody .nurse-row').forEach(r => r.classList.remove('dragging', 'drag-over'));
+      dragSrc = null;
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ADD NURSE LOCK — mostra estado bloqueado visualmente
+// ═══════════════════════════════════════════════════════════
+function updateAddNurseSection() {
+  const section = document.getElementById('addNurseSection');
+  if (!section) return;
+  if (scheduleUnlocked) section.classList.remove('locked');
+  else section.classList.add('locked');
+}
+
+const _origUpdateScheduleLockBtn = updateScheduleLockBtn;
+updateScheduleLockBtn = function() {
+  _origUpdateScheduleLockBtn();
+  updateAddNurseSection();
+};
+
+// ═══════════════════════════════════════════════════════════
+//  HOURS NURSES — seleção de enfermeiros na contagem de horas
+// ═══════════════════════════════════════════════════════════
+const HOURS_NURSES_KEY = 'nc_hours_nurses';
+
+function loadHoursNurses() {
+  const v = fbGet(HOURS_NURSES_KEY);
+  if (!v) return null;
+  try { return JSON.parse(v); } catch(e) { return null; }
+}
+function saveHoursNurses(ids) {
+  fbSet(HOURS_NURSES_KEY, JSON.stringify(ids));
+}
+
+function renderHoursNurseSelector() {
+  const el = document.getElementById('hoursNursesList');
+  if (!el) return;
+  const nurses = loadJSON(NURSES_KEY) || [];
+  const selected = loadHoursNurses() || nurses.map(n => n.id);
+  el.innerHTML = nurses.map(n => `
+    <label style="display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;transition:border-color .2s;">
+      <input type="checkbox" value="${n.id}" ${selected.includes(n.id) ? 'checked' : ''} onchange="updateHoursNurseSelection()" style="accent-color:var(--accent);width:15px;height:15px;">
+      ${n.name}
+    </label>`).join('');
+}
+
+function updateHoursNurseSelection() {
+  const checked = [...document.querySelectorAll('#hoursNursesList input:checked')].map(i => i.value);
+  saveHoursNurses(checked);
+}
+
+const _origRenderConfigTable = renderConfigTable;
+renderConfigTable = function() {
+  _origRenderConfigTable();
+  renderHoursNurseSelector();
+};
+
+
+const _origRenderTable = renderTable;
+renderTable = function() {
+  _origRenderTable();
+  initDragSort();
+  updateAddNurseSection();
+};
+// Init on load
+document.addEventListener('DOMContentLoaded', () => {
+  updateAddNurseSection();
+});
+
+
+
+// ══════════════════════════════════════════════════════════════════
+//  MACHICO — Horário independente com sincronização de enfermeiros
+// ══════════════════════════════════════════════════════════════════
+
+// Keys Firebase Machico
+const schedKeyM  = (y,m) => `nc_sched_machico_${y}_${m}`;
+const needsKeyM  = (y,m) => `nc_needs_machico_${y}_${m}`;
+const COUNTER_KEY_M = 'nc_counter_machico';
+
+const loadScheduleM = (y,m) => loadJSON(schedKeyM(y,m))  || {};
+const loadNeedsM    = (y,m) => loadJSON(needsKeyM(y,m))  || {};
+const loadNursesM   = ()    => loadJSON(NURSES_KEY_M)     || [];
+const saveScheduleM = (y,m,d) => fbSet(schedKeyM(y,m),  JSON.stringify(d));
+const saveNeedsM    = (y,m,d) => fbSet(needsKeyM(y,m),  JSON.stringify(d));
+let saveNursesM   = a      => fbSet(NURSES_KEY_M,      JSON.stringify(a));
+
+// State Machico
+const now0M = new Date();
+let curYearM  = now0M.getFullYear();
+let curMonthM = now0M.getMonth();
+let nurseListM    = [];
+let scheduleDataM = {};
+let needsDataM    = {};
+let popupNurseM = null, popupDayM = null;
+let nurseCounterM = 0;
+let scheduleUnlockedM = false;
+
+// ── Legend Machico
+function renderLegendM(){
+  const el = document.getElementById('legendItemsM');
+  if (!el) return;
+  el.innerHTML = SHIFTS.map(s=>`
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:${s.color}">${s.short}</div>
+      <span>${s.label}</span>
+    </div>`).join('');
+}
+
+// ── Header helpers Machico
+function buildHeaderRowsM(firstColLabel){
+  const days = daysInMonth(curYearM, curMonthM);
+  const today = new Date();
+  const isCM = today.getFullYear()===curYearM && today.getMonth()===curMonthM;
+  let h = `<tr><th class="col-name">${firstColLabel}</th>`;
+  for(let d=1;d<=days;d++){
+    const wd = new Date(curYearM,curMonthM,d).getDay();
+    const isT = isCM && d===today.getDate();
+    const cls = [wd===0?'sunday-col':'', wd===6?'saturday-col':'', isT?'today-col':''].filter(Boolean).join(' ');
+    h += `<th class="${cls}">${d}<br><span class="weekday">${WEEKDAYS_PT[wd]}</span></th>`;
+  }
+  h += '</tr>';
+  return h;
+}
+
+function dayColClassM(d){
+  const wd = new Date(curYearM, curMonthM, d).getDay();
+  const today = new Date();
+  const isT = today.getFullYear()===curYearM && today.getMonth()===curMonthM && d===today.getDate();
+  return [wd===0?'sunday-col':'', wd===6?'saturday-col':'', isT?'today-col':''].filter(Boolean).join(' ');
+}
+
+// ── Render table Machico
+function renderTableM(){
+  const days = daysInMonth(curYearM, curMonthM);
+  const head = document.getElementById('tableHeadM');
+  const body = document.getElementById('tableBodyM');
+  if (!head || !body) return;
+  head.innerHTML = buildHeaderRowsM(
+    `Enfermeiro(a)<span class="nurse-count">(${nurseListM.length})</span>`
+  );
+  if(!nurseListM.length){
+    body.innerHTML=`<tr><td colspan="${days+1}" class="empty-msg">Nenhum enfermeiro adicionado. Use o campo abaixo para adicionar.</td></tr>`;
+    initDragSortM();
+    return;
+  }
+  let b = '';
+  for(const nurse of nurseListM){
+    b += `<tr class="nurse-row" draggable="true" data-nurse="${nurse.id}">`;
+    b += `<td class="col-name"><span class="drag-handle" title="Arrastar para reordenar">⠿</span><span title="${nurse.name}">${nurse.name}</span>
+          <button class="btn-danger" onclick="removeNurseM('${nurse.id}')">✕</button></td>`;
+    for(let d=1;d<=days;d++){
+      const sk=(scheduleDataM[nurse.id]||{})[d];
+      const s=sk?shiftByKey(sk):null;
+      b += `<td class="${dayColClassM(d)}" data-day="${d}" onclick="openPopupM(this,'${nurse.id}',${d})" ${s ? `style="background:${s.color}"` : ''}>`;
+      if(s)  b += `<div class="shift-chip">${s.short}</div>`;
+      else if(sk) b += `<div class="shift-free">${sk}</div>`;
+      b += `</td>`;
+    }
+    b += '</tr>';
+  }
+  b += '<tr class="row-totals"><td class="col-name">Turnos / dia</td>';
+  for(let d=1;d<=days;d++){
+    let c=0; for(const n of nurseListM) if((scheduleDataM[n.id]||{})[d]) c++;
+    b += `<td>${c||''}</td>`;
+  }
+  b += '</tr>';
+  body.innerHTML = b;
+  initDragSortM();
+  updateAddNurseSectionM();
+}
+
+// ── Needs table Machico
+function renderNeedsM(){
+  const days = daysInMonth(curYearM, curMonthM);
+  const needsHead = document.getElementById('needsHeadM');
+  const needsBody = document.getElementById('needsBodyM');
+  if (!needsHead || !needsBody) return;
+  needsHead.innerHTML = buildHeaderRowsM('Período');
+  let b = '';
+  for(const row of NEEDS_ROWS){
+    b += `<tr class="needs-row ${row.cls}"><td class="col-name">${row.label}</td>`;
+    for(let d=1;d<=days;d++){
+      const val=((needsDataM[row.key]||{})[d])||'';
+      b += `<td class="${dayColClassM(d)}">
+        <input type="number" min="0" max="99" class="needs-input"
+               value="${val}" data-period="${row.key}" data-day="${d}"
+               onchange="saveNeedCellM(this)">
+      </td>`;
+    }
+    b += '</tr>';
+  }
+  needsBody.innerHTML = b;
+}
+
+function saveNeedCellM(inp){
+  const p=inp.dataset.period, d=parseInt(inp.dataset.day), v=inp.value.trim();
+  if(!needsDataM[p]) needsDataM[p]={};
+  if(v===''||v==='0') delete needsDataM[p][d];
+  else needsDataM[p][d]=parseInt(v);
+  saveNeedsM(curYearM,curMonthM,needsDataM);
+}
+
+function recalcNeedsForDayM(day){
+  const totals = { M:0, T:0, N:0 };
+  for(const nurse of nurseListM){
+    const sk = (scheduleDataM[nurse.id]||{})[day];
+    const periods = sk ? SHIFT_PERIODS[sk] : null;
+    if(periods){ totals.M += periods.M; totals.T += periods.T; totals.N += periods.N; }
+  }
+  for(const period of ['M','T','N']){
+    if(!needsDataM[period]) needsDataM[period]={};
+    if(totals[period]>0) needsDataM[period][day]=totals[period];
+    else delete needsDataM[period][day];
+  }
+  saveNeedsM(curYearM,curMonthM,needsDataM);
+}
+
+// ── Popup Machico
+function openPopupM(cell, nurseId, day){
+  if (!scheduleUnlockedM) {
+    requirePassword('Editar Horário Machico', 'Introduza a password para desbloquear a edição.', () => {
+      scheduleUnlockedM = true;
+      updateScheduleLockBtnM();
+      _openPopupMCore(cell, nurseId, day);
+    });
+    return;
+  }
+  _openPopupMCore(cell, nurseId, day);
+}
+
+function _openPopupMCore(cell, nurseId, day){
+  popupNurseM=nurseId; popupDayM=day;
+  const popup=document.getElementById('shiftPopupM');
+  const curVal=(scheduleDataM[nurseId]||{})[day]||'';
+  const isFree=curVal && !shiftByKey(curVal);
+  let html = SHIFTS.map(s=>`
+    <div class="shift-option" onclick="setShiftM('${s.key}')">
+      <div class="legend-swatch" style="background:${s.color};min-width:28px;height:16px;border-radius:3px;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#fff;letter-spacing:-.3px;flex-shrink:0;padding:0 3px;">${s.short}</div>
+      <span>${s.label}</span>
+    </div>`).join('');
+  html += `<div class="shift-option clear" onclick="setShiftM(null)">✕ Limpar célula</div>`;
+  html += `<div class="popup-free-row">
+    <input type="text" id="freeShiftInputM" class="popup-free-input" maxlength="12"
+      placeholder="✏ Escrita livre…" value="${isFree?curVal:''}"
+      onkeydown="if(event.key==='Enter'){event.stopPropagation();commitFreeShiftM();}"
+      onclick="event.stopPropagation()">
+    <button class="btn-confirm" onclick="event.stopPropagation();commitFreeShiftM()">✓</button>
+  </div>`;
+  popup.innerHTML = html;
+  popup.classList.remove('hidden');
+  const rect=cell.getBoundingClientRect();
+  const popH=popup.offsetHeight||340;
+  const popW=popup.offsetWidth||295;
+  const spaceAbove=rect.top;
+  const spaceBelow=window.innerHeight-rect.bottom;
+  let top, left;
+  if(spaceAbove>=popH+4 || spaceAbove>=spaceBelow){
+    top=rect.top-popH-4;
+  } else {
+    top=rect.bottom+4;
+  }
+  left=rect.left;
+  if(left+popW>window.innerWidth) left=window.innerWidth-popW-4;
+  if(left<0) left=4;
+  if(top<0) top=4;
+  if(top+popH>window.innerHeight) top=window.innerHeight-popH-4;
+  popup.style.position='fixed';
+  popup.style.top=top+'px';
+  popup.style.left=left+'px';
+}
+
+function setShiftM(key){
+  if(!scheduleDataM[popupNurseM]) scheduleDataM[popupNurseM]={};
+  if(key) scheduleDataM[popupNurseM][popupDayM]=key;
+  else    delete scheduleDataM[popupNurseM][popupDayM];
+  saveScheduleM(curYearM,curMonthM,scheduleDataM);
+  recalcNeedsForDayM(popupDayM);
+  closePopupM(); renderTableM(); renderNeedsM();
+}
+
+function closePopupM(){
+  const popup = document.getElementById('shiftPopupM');
+  if (popup) popup.classList.add('hidden');
+  popupNurseM=null; popupDayM=null;
+}
+
+function commitFreeShiftM(){
+  const inp=document.getElementById('freeShiftInputM'); if(!inp) return;
+  const val=inp.value.trim().toUpperCase();
+  if(!scheduleDataM[popupNurseM]) scheduleDataM[popupNurseM]={};
+  if(val) scheduleDataM[popupNurseM][popupDayM]=val;
+  else    delete scheduleDataM[popupNurseM][popupDayM];
+  saveScheduleM(curYearM,curMonthM,scheduleDataM);
+  recalcNeedsForDayM(popupDayM);
+  closePopupM(); renderTableM(); renderNeedsM();
+}
+
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#shiftPopupM') && !e.target.closest('#tableBodyM td[data-day]')) closePopupM();
+});
+
+// ── Nurse management Machico
+document.getElementById('addNurseBtnM').addEventListener('click', addNurseM);
+document.getElementById('nurseInputM').addEventListener('keydown', e=>{ if(e.key==='Enter') addNurseM(); });
+
+function addNurseM(){
+  if (!scheduleUnlockedM) {
+    requirePassword('Editar Horário Machico', 'Introduza a password para adicionar enfermeiros.', () => {
+      scheduleUnlockedM = true;
+      updateScheduleLockBtnM();
+      _addNurseMCore();
+    });
+    return;
+  }
+  _addNurseMCore();
+}
+
+function _addNurseMCore(){
+  const inp=document.getElementById('nurseInputM');
+  const name=inp.value.trim(); if(!name) return;
+  nurseCounterM++;
+  fbSet(COUNTER_KEY_M, nurseCounterM);
+  nurseListM.push({ id:'nm'+nurseCounterM, name });
+  saveNursesM(nurseListM);
+  inp.value=''; renderTableM();
+}
+
+function removeNurseM(id){
+  if (!scheduleUnlockedM) {
+    requirePassword('Editar Horário Machico', 'Introduza a password para remover enfermeiros.', () => {
+      scheduleUnlockedM = true;
+      updateScheduleLockBtnM();
+      _removeNurseMCore(id);
+    });
+    return;
+  }
+  _removeNurseMCore(id);
+}
+
+function _removeNurseMCore(id){
+  if(!confirm('Remover este enfermeiro(a) do horário?')) return;
+  nurseListM=nurseListM.filter(n=>n.id!==id);
+  saveNursesM(nurseListM); renderTableM();
+}
+
+// ── Month navigation Machico
+function updateMonthDisplayM(){
+  const el = document.getElementById('monthDisplayM');
+  if (el) el.textContent=`${MONTHS_PT[curMonthM]} ${curYearM}`;
+}
+function changeMonthM(delta){
+  curMonthM+=delta;
+  if(curMonthM<0){curMonthM=11;curYearM--;}
+  if(curMonthM>11){curMonthM=0;curYearM++;}
+  scheduleDataM=loadScheduleM(curYearM,curMonthM);
+  needsDataM=loadNeedsM(curYearM,curMonthM);
+  updateMonthDisplayM(); renderTableM(); renderNeedsM();
+}
+document.getElementById('prevMonthM').addEventListener('click',()=>changeMonthM(-1));
+document.getElementById('nextMonthM').addEventListener('click',()=>changeMonthM(1));
+
+// ── Clear month Machico
+document.getElementById('clearMonthBtnM').addEventListener('click',()=>{
+  if (!scheduleUnlockedM) {
+    requirePassword('Editar Horário Machico', 'Introduza a password para limpar o mês.', () => {
+      scheduleUnlockedM = true;
+      updateScheduleLockBtnM();
+      if(!confirm(`Limpar todos os turnos e necessidades de ${MONTHS_PT[curMonthM]} ${curYearM}?`)) return;
+      scheduleDataM={}; needsDataM={};
+      saveScheduleM(curYearM,curMonthM,scheduleDataM);
+      saveNeedsM(curYearM,curMonthM,needsDataM);
+      renderTableM(); renderNeedsM();
+    });
+    return;
+  }
+  if(!confirm(`Limpar todos os turnos e necessidades de ${MONTHS_PT[curMonthM]} ${curYearM}?`)) return;
+  scheduleDataM={}; needsDataM={};
+  saveScheduleM(curYearM,curMonthM,scheduleDataM);
+  saveNeedsM(curYearM,curMonthM,needsDataM);
+  renderTableM(); renderNeedsM();
+});
+
+// ── Export Excel Machico (reutiliza lógica Funchal adaptada)
+document.getElementById('exportBtnM').addEventListener('click', () => exportToExcelM());
+
+function exportToExcelM() {
+  // Reutiliza exportToExcel mas com dados de Machico
+  const _origNurseList = nurseList;
+  const _origScheduleData = scheduleData;
+  const _origCurYear = curYear;
+  const _origCurMonth = curMonth;
+  nurseList = nurseListM;
+  scheduleData = scheduleDataM;
+  curYear = curYearM;
+  curMonth = curMonthM;
+  try { exportToExcel(); } finally {
+    nurseList = _origNurseList;
+    scheduleData = _origScheduleData;
+    curYear = _origCurYear;
+    curMonth = _origCurMonth;
+  }
+}
+
+// ── Lock / Unlock Machico
+function updateScheduleLockBtnM() {
+  const btn = document.getElementById('schedLockBtnM');
+  if (!btn) return;
+  if (scheduleUnlockedM) {
+    btn.innerHTML = '🔓 Desbloqueado';
+    btn.title = 'Clique para bloquear';
+  } else {
+    btn.innerHTML = '🔒 Bloqueado';
+    btn.title = 'Clique para desbloquear e editar';
+  }
+  updateAddNurseSectionM();
+}
+
+function toggleScheduleLockM() {
+  if (scheduleUnlockedM) {
+    scheduleUnlockedM = false;
+    updateScheduleLockBtnM();
+  } else {
+    requirePassword(
+      'Editar Horário Machico',
+      'Introduza a password para desbloquear a edição do horário de Machico.',
+      () => {
+        scheduleUnlockedM = true;
+        updateScheduleLockBtnM();
+      }
+    );
+  }
+}
+
+function updateAddNurseSectionM() {
+  const section = document.getElementById('addNurseSectionM');
+  if (!section) return;
+  if (scheduleUnlockedM) section.classList.remove('locked');
+  else section.classList.add('locked');
+}
+
+// ── Drag & Drop Machico
+function initDragSortM() {
+  const rows = [...document.querySelectorAll('#tableBodyM .nurse-row')];
+  let dragSrc = null;
+  rows.forEach(row => {
+    row.addEventListener('dragstart', e => {
+      dragSrc = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.dataset.nurse || '');
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (!dragSrc || row === dragSrc) return;
+      document.querySelectorAll('#tableBodyM .nurse-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || row === dragSrc) return;
+      const fromId = dragSrc.dataset.nurse;
+      const toId   = row.dataset.nurse;
+      const fromIdx = nurseListM.findIndex(n => n.id === fromId);
+      const toIdx   = nurseListM.findIndex(n => n.id === toId);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const moved = nurseListM.splice(fromIdx, 1)[0];
+      nurseListM.splice(toIdx, 0, moved);
+      saveNursesM(nurseListM);
+      scheduleDataM = loadScheduleM(curYearM, curMonthM);
+      renderTableM();
+      renderNeedsM();
+    });
+    row.addEventListener('dragend', () => {
+      document.querySelectorAll('#tableBodyM .nurse-row').forEach(r => r.classList.remove('dragging', 'drag-over'));
+      dragSrc = null;
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SINCRONIZAÇÃO BIDIRECIONAL DE ENFERMEIROS
+//  Quando nome/ordem muda num menu, reflete no outro.
+//  Os IDs são independentes; sincroniza por nome+posição.
+// ══════════════════════════════════════════════════════════════════
+
+// Sync Funchal→Machico gerido via intercept saveNurses
+
+// ── Espelhar: saveNurses (Funchal) → Machico recebe exatamente os mesmos nomes e ordem
+const _origSaveNursesFtoM = saveNurses;
+saveNurses = function(a) {
+  _origSaveNursesFtoM(a);
+  // Machico espelha Funchal: mesmos nomes, mesma ordem
+  // Mantém IDs de Machico para preservar dados de horário
+  const mByName = {};
+  nurseListM.forEach(n => { mByName[n.name] = n; });
+  let counterRef = nurseCounterM;
+  const newM = a.map(fn => {
+    if (mByName[fn.name]) return mByName[fn.name];
+    counterRef++;
+    return { id: 'nm' + counterRef, name: fn.name };
+  });
+  nurseCounterM = counterRef;
+  fbSet(COUNTER_KEY_M, nurseCounterM);
+  nurseListM = newM;
+  fbSet(NURSES_KEY_M, JSON.stringify(nurseListM));
+};
+
+// ── Init Machico on navigate
+// (renderTableM, renderNeedsM, renderLegendM, updateMonthDisplayM já chamados no navigate)
+document.addEventListener('DOMContentLoaded', () => {
+  nurseCounterM = parseInt(fbGet(COUNTER_KEY_M)||'0');
+  updateAddNurseSectionM();
+});
+
+
+// ══════════════════════════════════════════════════════════════════
+//  TEMA CLARO / ESCURO
+// ══════════════════════════════════════════════════════════════════
+const THEME_KEY = 'nc_theme';
+
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.body.classList.add('light-theme');
+    const icon  = document.getElementById('themeToggleIcon');
+    const label = document.getElementById('themeToggleLabel');
+    if (icon)  icon.textContent  = '🌙';
+    if (label) label.textContent = 'Tema Escuro';
+  } else {
+    document.body.classList.remove('light-theme');
+    const icon  = document.getElementById('themeToggleIcon');
+    const label = document.getElementById('themeToggleLabel');
+    if (icon)  icon.textContent  = '☀️';
+    if (label) label.textContent = 'Tema Claro';
+  }
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.contains('light-theme');
+  const newTheme = isLight ? 'dark' : 'light';
+  fbSet(THEME_KEY, newTheme);
+  applyTheme(newTheme);
+}
+
+// Load saved theme on init (after Firebase loads)
+// Injected into the Firebase init block via DOMContentLoaded fallback
+document.addEventListener('DOMContentLoaded', () => {
+  // Will be overridden once Firebase loads; this is fallback
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) applyTheme(saved);
+});
+
+// Persist theme to localStorage as fallback
+const _origFbSet = fbSet;
+// Override toggleTheme to also save to localStorage
+const _origToggleTheme = toggleTheme;
+toggleTheme = function() {
+  const isLight = document.body.classList.contains('light-theme');
+  const newTheme = isLight ? 'dark' : 'light';
+  localStorage.setItem('nc_theme_local', newTheme);
+  fbSet(THEME_KEY, newTheme);
+  applyTheme(newTheme);
+};
+
+
+// ── Copy-Paste de células Excel nas tabelas de horário ───────────────────────
+function enableTablePaste(tableId) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const isMachico = tableId === 'scheduleTableM';
+
+  table.addEventListener('click', function(e) {
+    const td = e.target.closest('td');
+    if (!td || td.cellIndex === 0) return;
+    table.querySelectorAll('td.paste-selected').forEach(c => c.classList.remove('paste-selected'));
+    td.classList.add('paste-selected');
+    td.setAttribute('tabindex', '0');
+    td.focus();
+  });
+
+  table.addEventListener('paste', function(e) {
+    const active = table.querySelector('td.paste-selected');
+    if (!active) return;
+    e.preventDefault();
+
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    // Preserva linhas vazias para manter estrutura exata do copy-paste
+    const rows = text.split(/\r?\n/);
+    // Remove apenas trailing empty lines no final
+    while (rows.length && rows[rows.length - 1].trim() === '') rows.pop();
+    const cells = rows.map(r => r.split('\t'));
+
+    const tbody = table.querySelector('tbody');
+    const allRows = Array.from(tbody.rows);
+    const startRowIdx = allRows.indexOf(active.parentElement);
+    const startColIdx = active.cellIndex;
+
+    let changed = false;
+    const changedDays = new Set();
+
+    cells.forEach((rowData, ri) => {
+      const tr = allRows[startRowIdx + ri];
+      if (!tr) return;
+      const nurseId = tr.dataset.nurse;
+      if (!nurseId) return;
+
+      rowData.forEach((val, ci) => {
+        const td = tr.cells[startColIdx + ci];
+        if (!td || td.cellIndex === 0) return;
+        const day = parseInt(td.dataset.day);
+        if (!day) return;
+
+        // Normalizar: maiúsculas, sem espaços
+        // Célula vazia no Excel → apaga o turno; mantém a posição relativa
+        const normalized = val.trim().toUpperCase();
+
+        if (isMachico) {
+          if (!scheduleDataM[nurseId]) scheduleDataM[nurseId] = {};
+          if (normalized) scheduleDataM[nurseId][day] = normalized;
+          else delete scheduleDataM[nurseId][day];
+        } else {
+          if (!scheduleData[nurseId]) scheduleData[nurseId] = {};
+          if (normalized) scheduleData[nurseId][day] = normalized;
+          else delete scheduleData[nurseId][day];
+        }
+        changed = true;
+        changedDays.add(day);
+      });
+    });
+
+    if (changed) {
+      if (isMachico) {
+        saveScheduleM(curYearM, curMonthM, scheduleDataM);
+        changedDays.forEach(d => recalcNeedsForDayM(d));
+        saveNeedsM(curYearM, curMonthM, needsDataM);
+        renderTableM();
+        renderNeedsM();
+      } else {
+        saveSchedule(curYear, curMonth, scheduleData);
+        changedDays.forEach(d => recalcNeedsForDay(d));
+        saveNeeds(curYear, curMonth, needsData);
+        renderTable();
+        renderNeeds();
+      }
+    }
+
+    active.classList.remove('paste-selected');
+  });
+}
+
+// Funções de filtro para tabelas de horário
+function filterScheduleTable(query) {
+  const q = query.toLowerCase().trim();
+  const rows = document.querySelectorAll('#scheduleTable tbody tr');
+  rows.forEach(tr => {
+    const name = tr.cells[0] ? tr.cells[0].textContent.toLowerCase() : '';
+    tr.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
+}
+
+function filterScheduleTableM(query) {
+  const q = query.toLowerCase().trim();
+  const rows = document.querySelectorAll('#scheduleTableM tbody tr');
+  rows.forEach(tr => {
+    const name = tr.cells[0] ? tr.cells[0].textContent.toLowerCase() : '';
+    tr.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
+}
+
+</script>
